@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Park As You Desire — Find Parking Instantly</title>
+  <link rel="stylesheet" href="portal.css" />
+  <style>
+    /* Landing-page-specific extras */
+    .land-nav {
+      position: sticky; top: 0; z-index: 900;
+      background: transparent;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+    .land-nav.scrolled {
+      background: var(--primary);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+    }
+    .hero { min-height: 92vh; display: flex; flex-direction: column; justify-content: center; padding-top: 80px; }
+
+    /* Animated parking icons */
+    .hero-icons {
+      display: flex;
+      justify-content: center;
+      gap: 28px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+    .hero-icon-item {
+      width: 60px; height: 60px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px;
+      animation: float 3s ease-in-out infinite;
+    }
+    .hero-icon-item:nth-child(2) { animation-delay: 0.4s; }
+    .hero-icon-item:nth-child(3) { animation-delay: 0.8s; }
+    .hero-icon-item:nth-child(4) { animation-delay: 1.2s; }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    /* Types showcase */
+    .types-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .type-item {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: transform var(--transition), box-shadow var(--transition);
+    }
+    .type-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .type-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .type-item span { font-size: 13px; font-weight: 600; color: var(--text); }
+
+    /* CTA banner */
+    .cta-band {
+      background: linear-gradient(135deg, var(--accent) 0%, #e09200 100%);
+      padding: 64px 24px;
+      text-align: center;
+    }
+    .cta-band h2 { font-size: 32px; font-weight: 900; color: var(--primary); margin-bottom: 12px; }
+    .cta-band p  { font-size: 16px; color: rgba(26,60,94,0.8); margin-bottom: 32px; }
+    .cta-band .btn-blue { font-size: 16px; padding: 14px 36px; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar land-nav" id="landNav">
+  <div class="navbar-brand">
+    <span>P</span>ARKING-IN
+    <span class="brand-sub">Park As You Desire</span>
+  </div>
+  <nav class="navbar-nav">
+    <a href="portal.html" class="nav-link">Find Parking</a>
+    <a href="owner.html" class="nav-link">Owner Portal</a>
+    <a href="#about" class="nav-link">About</a>
+  </nav>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-inner">
+    <div class="hero-icons">
+      <div class="hero-icon-item">🚗</div>
+      <div class="hero-icon-item">🅿️</div>
+      <div class="hero-icon-item">📍</div>
+      <div class="hero-icon-item">💰</div>
+    </div>
+    <div class="hero-eyebrow">Smart Parking Platform</div>
+    <h1>Park As<br /><span>You Desire</span></h1>
+    <p>Find the nearest, cheapest parking spot in seconds — powered by real-time availability and smart search.</p>
+    <div class="hero-btns">
+      <a href="portal.html" class="btn btn-primary">Find Parking →</a>
+      <a href="owner.html" class="btn btn-outline">List Your Space →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section section-light" id="features">
+  <h2 class="section-title">Why Choose Park As You Desire?</h2>
+  <p class="section-sub">Everything you need to find and manage parking in one place.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <span class="feature-icon">🎯</span>
+      <h3>Smart Search</h3>
+      <p>Use GPS auto-detection or enter your destination manually. Sort by distance, cost, or parking type to find your perfect spot.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">🅿️</span>
+      <h3>9 Parking Types</h3>
+      <p>From dedicated spots and street parking to private open lots and secured garages — all types covered in a single search.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">💰</span>
+      <h3>Best Prices</h3>
+      <p>Compare hourly and daily rates side-by-side. Filter by cheapest to always get the best value for your money.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">⚡</span>
+      <h3>Real-Time Availability</h3>
+      <p>See live spot counts. Green means plenty of space, amber means filling fast, red means almost full.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">📅</span>
+      <h3>Plan Ahead</h3>
+      <p>Pick your date and time in advance. Check opening hours and available days before you travel.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">🗺️</span>
+      <h3>One-Tap Navigation</h3>
+      <p>Hit "Navigate" on any result and get instant Google Maps directions straight to the parking spot.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PARKING TYPES -->
+<section class="section" style="background: var(--light-bg);">
+  <h2 class="section-title">All Parking Types Covered</h2>
+  <p class="section-sub">Search across every type of parking in your area.</p>
+  <div class="types-grid">
+    <div class="type-item"><div class="type-dot" style="background:#3498db;"></div><span>Dedicated Parking</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#27ae60;"></div><span>Street Parking</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#9b59b6;"></div><span>Private Open Lot</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#e67e22;"></div><span>Unlocked Garage</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#e67e22;"></div><span>Unlocked Car Park</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#e67e22;"></div><span>Unlocked Lot</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#e74c3c;"></div><span>Locked Garage</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#e74c3c;"></div><span>Locked Car Park</span></div>
+    <div class="type-item"><div class="type-dot" style="background:#e74c3c;"></div><span>Locked Lot</span></div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section section-dark" id="about">
+  <h2 class="section-title">How It Works</h2>
+  <p class="section-sub">Three simple steps to park with confidence.</p>
+  <div class="steps-grid">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <h3>Enter Destination</h3>
+      <p>Type your destination or use GPS to detect your location automatically.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <h3>Choose Priority</h3>
+      <p>Sort by proximity, cost, or parking type — whatever matters most to you.</p>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <h3>Park &amp; Go</h3>
+      <p>View details, check availability, then tap Navigate for turn-by-turn directions.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BAND -->
+<div class="cta-band">
+  <h2>Ready to Park Smarter?</h2>
+  <p>Join thousands of drivers who save time and money every day.</p>
+  <a href="portal.html" class="btn btn-blue">Find Parking Now →</a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2026 <span>DNEXTWELT UG</span> | Park As You Desire &nbsp;·&nbsp; Built with ❤️ for smarter cities</p>
+</footer>
+
+<script>
+  // Sticky nav background on scroll
+  const nav = document.getElementById('landNav');
+  window.addEventListener('scroll', () => {
+    nav.classList.toggle('scrolled', window.scrollY > 50);
+  });
+</script>
+</body>
+</html>

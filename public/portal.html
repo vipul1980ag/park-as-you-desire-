@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Find Parking — Park As You Desire</title>
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="index.html" class="navbar-brand">
+    <span>P</span>ARKING-IN
+  </a>
+  <nav class="navbar-nav">
+    <a href="owner.html" class="nav-link">Owner Portal</a>
+    <button class="nav-icon-btn" title="Account" aria-label="User account">👤</button>
+  </nav>
+</nav>
+
+<!-- PORTAL LAYOUT -->
+<div class="portal-layout">
+
+  <!-- ===== LEFT SIDEBAR ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" id="tabPlannerBtn" onclick="switchTab('planner')">🗓 Parking Planner</button>
+      <button class="sidebar-tab" id="tabTrackBtn" onclick="switchTab('track')">📍 Track My Location</button>
+    </div>
+
+    <div class="sidebar-body">
+
+      <!-- ---- PLANNER TAB ---- -->
+      <div class="tab-pane active" id="tabPlanner">
+
+        <div class="form-group">
+          <label class="form-label">From</label>
+          <div class="input-with-btn">
+            <input type="text" class="form-control" id="plannerFrom" placeholder="Your starting point" />
+            <button class="gps-btn" id="plannerGpsBtn" title="Use my GPS location" onclick="getGPSLocation('planner')">📍</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">To (Destination)</label>
+          <input type="text" class="form-control" id="plannerTo" placeholder="Where are you going?" />
+        </div>
+
+        <div class="row-2">
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" class="form-control" id="plannerDate" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Time</label>
+            <input type="time" class="form-control" id="plannerTime" />
+          </div>
+        </div>
+
+        <div class="priority-section">
+          <span class="priority-label">Priority</span>
+          <div class="priority-options">
+            <label class="priority-option selected" id="prio-dest">
+              <input type="radio" name="priority" value="distance" checked />
+              <span class="p-icon">🎯</span>
+              <span class="p-text">Near to Destination</span>
+            </label>
+            <label class="priority-option" id="prio-cost">
+              <input type="radio" name="priority" value="cost" />
+              <span class="p-icon">💰</span>
+              <span class="p-text">Cost Per Hour / Day</span>
+            </label>
+            <label class="priority-option" id="prio-type">
+              <input type="radio" name="priority" value="type" />
+              <span class="p-icon">🅿️</span>
+              <span class="p-text">Parking Type</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Parking Type</label>
+          <select class="form-control" id="plannerType">
+            <option value="">All Types</option>
+            <option value="1">Type 1 — Dedicated Parking</option>
+            <option value="2">Type 2 — Street Parking</option>
+            <option value="3">Type 3 — Private Open Lot</option>
+            <option value="4">Type 4 — Unlocked Garage</option>
+            <option value="5">Type 5 — Unlocked Car Park</option>
+            <option value="6">Type 6 — Unlocked Lot</option>
+            <option value="7">Type 7 — Locked Garage</option>
+            <option value="8">Type 8 — Locked Car Park</option>
+            <option value="9">Type 9 — Locked Lot</option>
+          </select>
+        </div>
+
+        <button class="btn btn-blue btn-block" id="searchBtn" onclick="searchParking()">
+          🔍&nbsp; Search Parking
+        </button>
+
+      </div>
+      <!-- end #tabPlanner -->
+
+      <!-- ---- TRACK TAB ---- -->
+      <div class="tab-pane" id="tabTrack">
+
+        <div class="detect-btn-wrap">
+          <button class="btn btn-blue" id="detectBtn" onclick="getGPSLocation('track')">
+            📍&nbsp; Detect My Location
+          </button>
+          <p>We'll use your GPS to find nearby parking instantly.</p>
+        </div>
+
+        <div class="detected-loc" id="detectedLoc">
+          <span>✅</span> <span id="detectedLocText">Location detected</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">To (Destination)</label>
+          <input type="text" class="form-control" id="trackTo" placeholder="Where are you going?" />
+        </div>
+
+        <div class="priority-section">
+          <span class="priority-label">Priority</span>
+          <div class="priority-options">
+            <label class="priority-option selected" id="tprio-dest">
+              <input type="radio" name="trackPriority" value="distance" checked />
+              <span class="p-icon">🎯</span>
+              <span class="p-text">Near to Destination</span>
+            </label>
+            <label class="priority-option" id="tprio-cost">
+              <input type="radio" name="trackPriority" value="cost" />
+              <span class="p-icon">💰</span>
+              <span class="p-text">Cost Per Hour / Day</span>
+            </label>
+            <label class="priority-option" id="tprio-type">
+              <input type="radio" name="trackPriority" value="type" />
+              <span class="p-icon">🅿️</span>
+              <span class="p-text">Parking Type</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Parking Type</label>
+          <select class="form-control" id="trackType">
+            <option value="">All Types</option>
+            <option value="1">Type 1 — Dedicated Parking</option>
+            <option value="2">Type 2 — Street Parking</option>
+            <option value="3">Type 3 — Private Open Lot</option>
+            <option value="4">Type 4 — Unlocked Garage</option>
+            <option value="5">Type 5 — Unlocked Car Park</option>
+            <option value="6">Type 6 — Unlocked Lot</option>
+            <option value="7">Type 7 — Locked Garage</option>
+            <option value="8">Type 8 — Locked Car Park</option>
+            <option value="9">Type 9 — Locked Lot</option>
+          </select>
+        </div>
+
+        <button class="btn btn-blue btn-block" id="trackSearchBtn" onclick="trackSearch()">
+          📍&nbsp; Find Parking Near Me
+        </button>
+
+      </div>
+      <!-- end #tabTrack -->
+
+    </div><!-- /sidebar-body -->
+  </aside>
+
+  <!-- ===== MAIN CONTENT ===== -->
+  <main class="main-content">
+    <div class="results-header">
+      <div>
+        <span class="results-title">Parking Places Available</span>
+        <span class="results-count" id="resultsCount">0 results</span>
+      </div>
+      <div class="filter-chips">
+        <button class="chip active" data-filter="all" onclick="applyFilter('all', this)">All</button>
+        <button class="chip" data-filter="cheapest" onclick="applyFilter('cheapest', this)">💰 Cheapest</button>
+        <button class="chip" data-filter="nearest" onclick="applyFilter('nearest', this)">📍 Nearest</button>
+        <button class="chip" data-filter="private" onclick="applyFilter('private', this)">🔒 Private</button>
+        <button class="chip" data-filter="public" onclick="applyFilter('public', this)">🟢 Public</button>
+      </div>
+    </div>
+
+    <div class="results-body" id="resultsBody">
+      <div class="empty-state">
+        <span class="empty-icon">🅿️</span>
+        <h3>Search for Parking</h3>
+        <p>Enter your destination and search to see available parking spots near you.</p>
+      </div>
+    </div>
+  </main>
+
+</div>
+<!-- /portal-layout -->
+
+<!-- ===== PARKING DETAIL MODAL ===== -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modalTitle">Parking Details</h2>
+      <button class="modal-close" onclick="closeModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <!-- populated by JS -->
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-grey" onclick="closeModal()">Close</button>
+      <button class="btn btn-blue" id="navigateBtn" onclick="navigateToParking()">Navigate 🗺</button>
+      <button class="btn btn-primary" id="bookBtn" onclick="bookParking()">Book This Spot</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="portal.js"></script>
+</body>
+</html>

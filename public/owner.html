@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Owner Portal — Park As You Desire</title>
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <a href="index.html" class="navbar-brand">
+    <span>P</span>ARKING-IN
+    <span class="brand-sub">Owner Portal</span>
+  </a>
+  <nav class="navbar-nav">
+    <a href="portal.html" class="nav-link">Find Parking</a>
+    <a href="index.html" class="nav-link">Home</a>
+  </nav>
+</nav>
+
+<!-- OWNER LAYOUT -->
+<div class="owner-layout">
+
+  <!-- STATS ROW -->
+  <div class="stats-row" id="statsRow">
+    <div class="stat-card">
+      <div class="stat-icon blue">🅿️</div>
+      <div>
+        <div class="stat-value" id="statTotal">—</div>
+        <div class="stat-label">Total Listings</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon green">✅</div>
+      <div>
+        <div class="stat-value" id="statActive">—</div>
+        <div class="stat-label">Active Now</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon orange">📅</div>
+      <div>
+        <div class="stat-value" id="statBooked">—</div>
+        <div class="stat-label">Booked Today</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="owner-grid">
+
+    <!-- LEFT: LISTINGS -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>My Parking Listings</span>
+        <button class="btn btn-sm btn-primary" onclick="resetForm()">+ Add New</button>
+      </div>
+      <div class="panel-body" id="listingsPanel">
+        <div class="loading-state">
+          <div class="spinner spinner-lg"></div>
+          <p>Loading listings…</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: FORM -->
+    <div class="panel">
+      <div class="panel-header">
+        <span id="formTitle">Add New Parking Spot</span>
+      </div>
+      <div class="panel-body">
+        <form id="parkingForm" onsubmit="saveListing(event)">
+          <input type="hidden" id="editingId" value="" />
+
+          <div class="form-section-title">Basic Information</div>
+
+          <div class="form-group">
+            <label class="form-label" for="fName">Parking Name <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-control" id="fName" placeholder="e.g. City Centre Car Park A" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="fAddress">Address <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-control" id="fAddress" placeholder="Full street address" required />
+          </div>
+
+          <div class="row-2">
+            <div class="form-group">
+              <label class="form-label" for="fLat">Latitude</label>
+              <input type="number" class="form-control" id="fLat" placeholder="e.g. 51.5074" step="any" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="fLng">Longitude</label>
+              <input type="number" class="form-control" id="fLng" placeholder="e.g. -0.1278" step="any" />
+            </div>
+          </div>
+
+          <div class="form-section-title">Parking Details</div>
+
+          <div class="form-group">
+            <label class="form-label" for="fType">Type of Parking <span style="color:var(--danger)">*</span></label>
+            <select class="form-control" id="fType" required>
+              <option value="">— Select type —</option>
+              <option value="1">Type 1 — Dedicated Parking</option>
+              <option value="2">Type 2 — Street Parking</option>
+              <option value="3">Type 3 — Private Open Lot</option>
+              <option value="4">Type 4 — Unlocked Garage</option>
+              <option value="5">Type 5 — Unlocked Car Park</option>
+              <option value="6">Type 6 — Unlocked Lot</option>
+              <option value="7">Type 7 — Locked Garage</option>
+              <option value="8">Type 8 — Locked Car Park</option>
+              <option value="9">Type 9 — Locked Lot</option>
+            </select>
+          </div>
+
+          <div class="row-2">
+            <div class="form-group">
+              <label class="form-label" for="fCostHr">Cost Per Hour (£)</label>
+              <input type="number" class="form-control" id="fCostHr" placeholder="e.g. 2.50" step="0.01" min="0" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="fCostDay">Cost Per Day (£)</label>
+              <input type="number" class="form-control" id="fCostDay" placeholder="e.g. 15.00" step="0.01" min="0" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="fSpots">Total Spots <span style="color:var(--danger)">*</span></label>
+            <input type="number" class="form-control" id="fSpots" placeholder="e.g. 50" min="1" required />
+          </div>
+
+          <div class="form-section-title">Availability</div>
+
+          <div class="form-group">
+            <label class="form-label">Available Days</label>
+            <div class="checkbox-group" id="daysGroup">
+              <label class="checkbox-item" data-day="Mon"><input type="checkbox" value="Mon" />Mon</label>
+              <label class="checkbox-item" data-day="Tue"><input type="checkbox" value="Tue" />Tue</label>
+              <label class="checkbox-item" data-day="Wed"><input type="checkbox" value="Wed" />Wed</label>
+              <label class="checkbox-item" data-day="Thu"><input type="checkbox" value="Thu" />Thu</label>
+              <label class="checkbox-item" data-day="Fri"><input type="checkbox" value="Fri" />Fri</label>
+              <label class="checkbox-item" data-day="Sat"><input type="checkbox" value="Sat" />Sat</label>
+              <label class="checkbox-item" data-day="Sun"><input type="checkbox" value="Sun" />Sun</label>
+            </div>
+          </div>
+
+          <div class="row-2">
+            <div class="form-group">
+              <label class="form-label" for="fFrom">Available From</label>
+              <input type="time" class="form-control" id="fFrom" value="06:00" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="fTo">Available To</label>
+              <input type="time" class="form-control" id="fTo" value="22:00" />
+            </div>
+          </div>
+
+          <div class="form-section-title">Additional Info</div>
+
+          <div class="form-group">
+            <label class="form-label" for="fDesc">Description</label>
+            <textarea class="form-control" id="fDesc" rows="3" placeholder="Any extra information for drivers…"></textarea>
+          </div>
+
+          <div id="formMessage"></div>
+
+          <div style="display:flex; gap:10px; margin-top:16px;">
+            <button type="submit" class="btn btn-blue" id="saveBtn" style="flex:1;">
+              💾&nbsp; Save Listing
+            </button>
+            <button type="button" class="btn btn-grey" onclick="resetForm()" style="flex:0 0 auto;">
+              Clear Form
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Day checkbox interaction -->
+<script>
+  document.querySelectorAll('.checkbox-item').forEach(item => {
+    item.addEventListener('click', function() {
+      const cb = this.querySelector('input[type="checkbox"]');
+      cb.checked = !cb.checked;
+      this.classList.toggle('checked', cb.checked);
+    });
+  });
+</script>
+<script src="owner.js"></script>
+</body>
+</html>

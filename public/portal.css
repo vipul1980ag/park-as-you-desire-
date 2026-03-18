@@ -1042,37 +1042,55 @@ footer span { color: var(--accent); }
   position: absolute;
   bottom: 16px;
   left: 50%;
-  transform: translateX(-50%) translateY(140px);
+  transform: translateX(-50%) translateY(260px);
   z-index: 800;
   background: #fff;
   border: 2px solid var(--primary);
-  border-radius: 12px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.18);
-  padding: 12px 16px;
-  min-width: 300px;
-  max-width: 90%;
-  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  padding: 14px 16px 12px;
+  min-width: 320px;
+  max-width: 94%;
+  transition: transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
   pointer-events: all;
 }
-.parking-suggestion-banner.show {
-  transform: translateX(-50%) translateY(0);
-}
-.suggestion-content {
+.parking-suggestion-banner.show { transform: translateX(-50%) translateY(0); }
+
+/* Header */
+.suggestion-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
+  margin-bottom: 10px;
 }
-.suggestion-icon { font-size: 26px; flex-shrink: 0; }
-.suggestion-text { flex: 1; min-width: 0; }
-.suggestion-text strong { display: block; font-size: 13px; font-weight: 800; color: var(--primary); }
-.suggestion-text span   { font-size: 12px; color: var(--text-muted); display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.suggestion-icon { font-size: 26px; flex-shrink: 0; margin-top: 2px; }
+.suggestion-title-wrap { flex: 1; min-width: 0; }
+.suggestion-title-wrap strong { display: block; font-size: 14px; font-weight: 800; color: var(--primary); }
+.suggestion-title-wrap span   { font-size: 11px; color: var(--text-muted); display: block; margin-top: 2px; }
 .suggestion-close {
   background: none; border: none;
   font-size: 22px; color: var(--text-muted);
-  cursor: pointer; padding: 0 2px; flex-shrink: 0;
-  line-height: 1;
+  cursor: pointer; padding: 0 2px; flex-shrink: 0; line-height: 1;
 }
 .suggestion-close:hover { color: var(--danger); }
+
+/* Detail grid */
+.suggestion-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  background: var(--light-bg);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.suggestion-detail-item { display: flex; flex-direction: column; gap: 2px; }
+.sd-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); }
+.sd-value { font-size: 13px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Action buttons */
+.suggestion-actions { display: flex; gap: 8px; }
+.suggestion-actions .btn { flex: 1; justify-content: center; }
 
 /* ============================================================
    MODAL MINI-MAP

@@ -32,6 +32,9 @@ let lastSpeedKmh        = null;
 let suggestionVisible   = false;
 let suggestionCooldown  = false;
 let suggestedParkings   = [];
+let nearestParking      = null;
+let routeLayer          = null;
+let routeDestMarker     = null;
 
 /* ============================================================
    MOCK DATA (used if API is unavailable)
@@ -1031,8 +1034,7 @@ function startLiveTracking() {
   const btn = document.getElementById('livePBtn');
   btn.classList.add('active');
   btn.title = 'Live parking tracking ON — tap to stop';
-
-  showToast('🅿️ Live tracking ON — drive and we\'ll suggest parking automatically!', 'success');
+  showToast('🅿️ Live tracking ON — we\'ll suggest parking automatically as you drive!', 'success');
 
   watchId = navigator.geolocation.watchPosition(
     onPositionUpdate,
@@ -1049,6 +1051,7 @@ function stopLiveTracking() {
   btn.classList.remove('active');
   btn.title = 'Enable real-time parking suggestions as you drive';
   hideSuggestion();
+  clearRoute();
   showToast('Live tracking stopped.', 'info');
 }
 
@@ -1056,11 +1059,10 @@ function onPositionUpdate(position) {
   const { latitude: lat, longitude: lng, speed } = position.coords;
   const now = Date.now();
 
-  // Keep user marker in sync
   userLat = lat; userLng = lng;
   if (map) showUserOnMap(lat, lng);
 
-  // Calculate speed: prefer GPS speed (m/s → km/h), else derive from positions
+  // Speed: prefer GPS value (m/s → km/h), else compute from position delta
   let speedKmh = speed != null ? speed * 3.6 : null;
   if (speedKmh === null && lastPos && lastPosTime) {
     const distKm  = calcDist(lastPos.lat, lastPos.lng, lat, lng);
@@ -1068,10 +1070,10 @@ function onPositionUpdate(position) {
     speedKmh = timeSec > 1 ? (distKm / timeSec) * 3600 : 0;
   }
 
-  const prevSpeed = lastSpeedKmh;
-  lastPos = { lat, lng };
-  lastPosTime = now;
-  lastSpeedKmh = speedKmh;
+  const prevSpeed  = lastSpeedKmh;
+  lastPos          = { lat, lng };
+  lastPosTime      = now;
+  lastSpeedKmh     = speedKmh;
 
   checkParkingSuggestion(lat, lng, speedKmh, prevSpeed);
 }
@@ -1084,71 +1086,182 @@ function checkParkingSuggestion(lat, lng, speedKmh, prevSpeed) {
   // Trigger A: within 800 m of chosen destination
   if (destLat !== null) {
     const distM = calcDist(lat, lng, destLat, destLng) * 1000;
-    if (distM < 800) {
+    if (distM < 800)
       reason = `${Math.round(distM)} m from your destination — find parking now`;
-    }
   }
 
-  // Trigger B: vehicle noticeably slowing (was > 25 km/h, now < 10 km/h)
-  if (!reason && prevSpeed !== null && speedKmh !== null) {
-    if (prevSpeed > 25 && speedKmh < 10) {
-      reason = `Vehicle slowing down — parking nearby?`;
-    }
-  }
+  // Trigger B: vehicle braking hard (was fast, now slow)
+  if (!reason && prevSpeed !== null && speedKmh !== null)
+    if (prevSpeed > 25 && speedKmh < 10)
+      reason = 'Vehicle slowing down — parking nearby?';
 
-  // Trigger C: moving slowly in an area (likely circling for parking)
-  if (!reason && speedKmh !== null && speedKmh > 1 && speedKmh < 8) {
-    reason = `Moving slowly — looking for parking?`;
-  }
+  // Trigger C: crawling (circling for a spot)
+  if (!reason && speedKmh !== null && speedKmh > 1 && speedKmh < 8)
+    reason = 'Moving slowly — looking for parking?';
 
   if (reason) triggerParkingSuggestion(lat, lng, reason);
 }
 
 async function triggerParkingSuggestion(lat, lng, reason) {
-  suggestionVisible = true;
+  suggestionVisible  = true;
   suggestionCooldown = true;
+  nearestParking     = null;
 
-  // Show banner immediately
-  const descEl = document.getElementById('suggestionDesc');
-  if (descEl) descEl.textContent = reason;
-  const banner = document.getElementById('parkingSuggestion');
-  if (banner) banner.classList.add('show');
+  // Show banner with trigger reason immediately
+  setText('suggestionDesc', reason);
+  setText('suggestionParkingName', '…');
+  setText('suggestionRate', '…');
+  setText('suggestionDistance', '…');
+  setText('suggestionETA', '…');
+  document.getElementById('parkingSuggestion')?.classList.add('show');
 
-  // Fetch real nearby parkings in background
   try {
-    suggestedParkings = await fetchOSMParkings(lat, lng, 500, '');
-    if (descEl && suggestedParkings.length > 0) {
-      descEl.textContent = `${reason} · ${suggestedParkings.length} spots found`;
+    suggestedParkings = await fetchOSMParkings(lat, lng, 800, '');
+
+    if (!suggestedParkings.length) {
+      setText('suggestionDesc', reason + ' · No spots found nearby');
+    } else {
+      // Pick the nearest with valid coords
+      nearestParking = suggestedParkings
+        .filter(p => p.lat && p.lng)
+        .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999))[0] || null;
+
+      setText('suggestionDesc', `${suggestedParkings.length} spots found · nearest below`);
+
+      if (nearestParking) {
+        setText('suggestionParkingName', nearestParking.name || 'Parking');
+        setText('suggestionRate', formatRate(nearestParking));
+
+        // Fetch driving route to nearest parking
+        try {
+          const route = await fetchRoute(lat, lng, nearestParking.lat, nearestParking.lng);
+          drawRoute(route.geometry);
+          setText('suggestionDistance', formatRouteDistance(route.distance));
+          setText('suggestionETA', formatETA(route.duration));
+        } catch (routeErr) {
+          console.warn('Route fetch failed:', routeErr.message);
+          setText('suggestionDistance', formatDist(nearestParking.distance));
+          setText('suggestionETA', '—');
+        }
+      }
     }
   } catch (e) {
-    console.warn('Could not fetch suggested parkings:', e);
+    console.warn('OSM fetch failed:', e.message);
+    setText('suggestionDesc', reason + ' · Could not load parking data');
   }
 
-  // Re-trigger allowed after 60 s
+  // Allow re-trigger after 60 s
   setTimeout(() => { suggestionCooldown = false; }, 60000);
+}
+
+/* ---- OSRM driving route ---- */
+async function fetchRoute(fromLat, fromLng, toLat, toLng) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=full&geometries=geojson`;
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error(`OSRM ${res.status}`);
+  const data = await res.json();
+  if (data.code !== 'Ok' || !data.routes.length) throw new Error('No route');
+  return {
+    geometry: data.routes[0].geometry,   // GeoJSON LineString
+    distance: data.routes[0].distance,   // metres
+    duration: data.routes[0].duration    // seconds
+  };
+}
+
+function drawRoute(geojsonGeometry) {
+  clearRoute();
+  if (!map) return;
+
+  routeLayer = L.geoJSON(geojsonGeometry, {
+    style: { color: '#1a3c5e', weight: 5, opacity: 0.85, dashArray: '10, 6' }
+  }).addTo(map);
+
+  // Destination pin on nearest parking
+  if (nearestParking?.lat && nearestParking?.lng) {
+    const destIcon = L.divIcon({
+      className: '',
+      html: `<div style="background:#f0a500;color:#1a3c5e;width:34px;height:34px;
+        border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+        border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);
+        display:flex;align-items:center;justify-content:center;">
+        <span style="transform:rotate(45deg);font-size:14px;font-weight:900;">P</span></div>`,
+      iconSize: [34, 34], iconAnchor: [17, 34], popupAnchor: [0, -36]
+    });
+    routeDestMarker = L.marker([nearestParking.lat, nearestParking.lng], { icon: destIcon })
+      .addTo(map)
+      .bindPopup(`<strong>${escHtml(nearestParking.name || 'Nearest Parking')}</strong><br>
+        <span>${formatRate(nearestParking)}</span>`)
+      .openPopup();
+  }
+
+  // Fit map to show full route
+  const bounds = routeLayer.getBounds();
+  if (userMarker) bounds.extend(userMarker.getLatLng());
+  map.fitBounds(bounds.pad(0.15));
+}
+
+function clearRoute() {
+  if (routeLayer)      { map?.removeLayer(routeLayer);      routeLayer      = null; }
+  if (routeDestMarker) { map?.removeLayer(routeDestMarker); routeDestMarker = null; }
+}
+
+/* ---- Rate formatting ---- */
+function formatRate(p) {
+  if (!p) return '—';
+  if (p.costPerHour === 0) return 'Free';
+  if (p.costPerHour > 0) {
+    const perMin = p.costPerHour / 60;
+    // Show per-minute if it gives a nicer number (< £0.10/min show as p/min)
+    return perMin < 0.10
+      ? `${Math.round(perMin * 100)}p/min  (£${p.costPerHour.toFixed(2)}/hr)`
+      : `£${p.costPerHour.toFixed(2)}/hr`;
+  }
+  if (p.costPerDay > 0) {
+    const perHr = p.costPerDay / 24;
+    return `£${perHr.toFixed(2)}/hr  (£${p.costPerDay.toFixed(2)}/day)`;
+  }
+  return 'Rate unknown (check on arrival)';
+}
+
+function formatRouteDistance(metres) {
+  return metres < 1000 ? `${Math.round(metres)} m` : `${(metres / 1000).toFixed(1)} km`;
+}
+
+function formatETA(seconds) {
+  if (seconds < 60)  return `${Math.round(seconds)}s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+  return `${(seconds / 3600).toFixed(1)} hr`;
+}
+
+/* ---- Navigate to nearest ---- */
+function navigateToNearest() {
+  if (!nearestParking) { showToast('No nearest parking selected.', 'warning'); return; }
+  openGoogleMaps(nearestParking);
 }
 
 function loadSuggestedParking() {
   hideSuggestion();
   if (suggestedParkings.length > 0) {
-    allParkings      = suggestedParkings;
-    filteredParkings = [...allParkings];
+    allParkings = suggestedParkings; filteredParkings = [...allParkings];
     renderResults(filteredParkings);
     showToast(`Showing ${allParkings.length} nearby parking spots.`, 'success');
   } else if (userLat !== null) {
-    // fallback: fresh fetch
     showLoading(true);
-    fetchOSMParkings(userLat, userLng, 500, '').then(results => {
-      allParkings = results; filteredParkings = [...allParkings];
-      renderResults(filteredParkings);
+    fetchOSMParkings(userLat, userLng, 500, '').then(r => {
+      allParkings = r; filteredParkings = [...r]; renderResults(r);
     }).catch(() => showToast('Could not load parking data.', 'error'));
   }
 }
 
 function hideSuggestion() {
   suggestionVisible = false;
-  const banner = document.getElementById('parkingSuggestion');
-  if (banner) banner.classList.remove('show');
+  document.getElementById('parkingSuggestion')?.classList.remove('show');
+}
+
+/* small helper */
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
 }
 
 /* ============================================================

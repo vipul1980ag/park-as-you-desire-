@@ -204,14 +204,38 @@
 
       <!-- Auto-suggestion banner (slides up when triggered) -->
       <div class="parking-suggestion-banner" id="parkingSuggestion">
-        <div class="suggestion-content">
+        <!-- Header row -->
+        <div class="suggestion-header">
           <span class="suggestion-icon">🅿️</span>
-          <div class="suggestion-text">
-            <strong>Parking Nearby!</strong>
-            <span id="suggestionDesc">Spots found near your location</span>
+          <div class="suggestion-title-wrap">
+            <strong id="suggestionTitle">Nearest Parking Found</strong>
+            <span id="suggestionDesc">Locating nearby spots…</span>
           </div>
-          <button class="btn btn-sm btn-primary" onclick="loadSuggestedParking()">View</button>
           <button class="suggestion-close" onclick="hideSuggestion()" aria-label="Dismiss">×</button>
+        </div>
+        <!-- Detail row: name + rate -->
+        <div class="suggestion-details" id="suggestionDetails">
+          <div class="suggestion-detail-item">
+            <span class="sd-label">📌 Parking</span>
+            <span class="sd-value" id="suggestionParkingName">—</span>
+          </div>
+          <div class="suggestion-detail-item">
+            <span class="sd-label">💰 Rate</span>
+            <span class="sd-value" id="suggestionRate">—</span>
+          </div>
+          <div class="suggestion-detail-item">
+            <span class="sd-label">📏 Distance</span>
+            <span class="sd-value" id="suggestionDistance">—</span>
+          </div>
+          <div class="suggestion-detail-item">
+            <span class="sd-label">⏱ ETA</span>
+            <span class="sd-value" id="suggestionETA">—</span>
+          </div>
+        </div>
+        <!-- Actions -->
+        <div class="suggestion-actions">
+          <button class="btn btn-sm btn-primary" id="navigateNearestBtn" onclick="navigateToNearest()">Navigate →</button>
+          <button class="btn btn-sm btn-blue" onclick="loadSuggestedParking()">View All</button>
         </div>
       </div>
     </div>

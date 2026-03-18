@@ -314,8 +314,8 @@ function setupAutocomplete(inputId, dropdownId, onSelect) {
   function reposition() {
     const wrap = input.closest('.autocomplete-wrap') || input;
     const rect = wrap.getBoundingClientRect();
-    dropdown.style.top   = `${rect.bottom + window.scrollY}px`;
-    dropdown.style.left  = `${rect.left + window.scrollX}px`;
+    dropdown.style.top   = `${rect.bottom}px`;
+    dropdown.style.left  = `${rect.left}px`;
     dropdown.style.width = `${rect.width}px`;
   }
 
@@ -351,19 +351,26 @@ function closeDropdown(dropdown) {
 
 async function nominatimSearch(query, dropdown, onSelect, input) {
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=0`;
-    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
-    if (!res.ok) return;
-    const results = await res.json();
-    if (!results.length) { closeDropdown(dropdown); return; }
+    // Photon (komoot) — fast, autocomplete-optimised, OSM-backed, no API key
+    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6&lang=en`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const features = data.features || [];
 
-    dropdown.innerHTML = results.map(r =>
-      `<div class="autocomplete-item" tabindex="0"
-         data-lat="${r.lat}" data-lng="${r.lon}"
-         data-name="${escHtml(r.display_name)}">
-         📍 ${escHtml(r.display_name)}
-       </div>`
-    ).join('');
+    if (!features.length) { closeDropdown(dropdown); return; }
+
+    dropdown.innerHTML = features.map(f => {
+      const p    = f.properties || {};
+      const lat  = f.geometry.coordinates[1];
+      const lng  = f.geometry.coordinates[0];
+      const parts = [p.name, p.street && p.housenumber ? `${p.street} ${p.housenumber}` : p.street, p.city || p.town || p.village, p.country].filter(Boolean);
+      const label = parts.join(', ');
+      return `<div class="autocomplete-item" tabindex="0"
+        data-lat="${lat}" data-lng="${lng}" data-name="${escHtml(label)}">
+        📍 ${escHtml(label)}
+      </div>`;
+    }).join('');
     dropdown.classList.add('open');
 
     dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
@@ -379,7 +386,7 @@ async function nominatimSearch(query, dropdown, onSelect, input) {
       });
     });
   } catch (err) {
-    console.warn('Nominatim error:', err.message);
+    console.warn('Autocomplete error:', err.message);
   }
 }
 

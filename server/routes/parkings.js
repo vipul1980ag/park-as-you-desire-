@@ -90,6 +90,71 @@ router.get('/', (req, res) => {
   }
 });
 
+// GET /api/parkings/nearby?lat=&lng=&radius=
+// Calls Overpass API server-side and returns OSM parking spots sorted by distance.
+router.get('/nearby', async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const radius = parseInt(req.query.radius) || 800;
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ success: false, message: 'lat and lng are required' });
+    }
+
+    const query = `[out:json][timeout:12];(way["amenity"="parking"](around:${radius},${lat},${lng});node["amenity"="parking"](around:${radius},${lat},${lng}););out center;`;
+    const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: AbortSignal.timeout(13000),
+    });
+
+    const json = await overpassRes.json();
+
+    const spots = (json.elements || [])
+      .map((el) => {
+        const tags = el.tags || {};
+        const elLat = el.lat || (el.center && el.center.lat);
+        const elLng = el.lon || (el.center && el.center.lon);
+        if (!elLat || !elLng) return null;
+
+        const parkingType = tags.parking || 'surface';
+        const isPrivate = tags.access === 'private' || tags.access === 'customers';
+        const fee = tags.fee === 'yes' || !!tags.charge;
+        const capacity = parseInt(tags.capacity) || (isPrivate ? 10 : 30);
+        const rates = { 'multi-storey': 3.0, underground: 3.5, street_side: 1.0, surface: 1.5 };
+        const costPerHour = fee ? (rates[parkingType] || 1.5) : 0;
+        const name = tags.name || 'Car Park';
+        const address =
+          [tags['addr:housenumber'], tags['addr:street'], tags['addr:city']].filter(Boolean).join(', ') ||
+          `${elLat.toFixed(4)}, ${elLng.toFixed(4)}`;
+        const distance = haversineDistance(lat, lng, elLat, elLng);
+
+        return {
+          id: `osm-${el.id}`,
+          name,
+          address,
+          lat: elLat,
+          lng: elLng,
+          type: parkingType,
+          costPerHour,
+          costPerDay: costPerHour * 10,
+          isPrivate,
+          capacity,
+          distance: parseFloat(distance.toFixed(3)),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.distance - b.distance);
+
+    res.json({ success: true, count: spots.length, data: spots });
+  } catch (err) {
+    console.error('GET /api/parkings/nearby error:', err);
+    res.status(500).json({ success: false, message: 'Overpass API error' });
+  }
+});
+
 // GET /api/parkings/:id
 router.get('/:id', (req, res) => {
   try {

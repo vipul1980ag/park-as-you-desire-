@@ -23,6 +23,16 @@ let userMarker     = null;
 let parkingMarkers = [];
 let modalMiniMap   = null;
 
+/* Live tracking state */
+let watchId             = null;
+let isLiveTracking      = false;
+let lastPos             = null;
+let lastPosTime         = null;
+let lastSpeedKmh        = null;
+let suggestionVisible   = false;
+let suggestionCooldown  = false;
+let suggestedParkings   = [];
+
 /* ============================================================
    MOCK DATA (used if API is unavailable)
    ============================================================ */
@@ -1003,6 +1013,142 @@ function showToast(message, type = 'info') {
   toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span> ${escHtml(message)}`;
   container.appendChild(toast);
   setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
+}
+
+/* ============================================================
+   LIVE TRACKING — Real-time parking suggestions as you drive
+   ============================================================ */
+function toggleLiveTracking() {
+  isLiveTracking ? stopLiveTracking() : startLiveTracking();
+}
+
+function startLiveTracking() {
+  if (!navigator.geolocation) {
+    showToast('Geolocation not supported by your browser.', 'error');
+    return;
+  }
+  isLiveTracking = true;
+  const btn = document.getElementById('livePBtn');
+  btn.classList.add('active');
+  btn.title = 'Live parking tracking ON — tap to stop';
+
+  showToast('🅿️ Live tracking ON — drive and we\'ll suggest parking automatically!', 'success');
+
+  watchId = navigator.geolocation.watchPosition(
+    onPositionUpdate,
+    err => console.warn('watchPosition error:', err),
+    { enableHighAccuracy: true, maximumAge: 4000, timeout: 10000 }
+  );
+}
+
+function stopLiveTracking() {
+  if (watchId !== null) { navigator.geolocation.clearWatch(watchId); watchId = null; }
+  isLiveTracking = false;
+  lastPos = null; lastPosTime = null; lastSpeedKmh = null;
+  const btn = document.getElementById('livePBtn');
+  btn.classList.remove('active');
+  btn.title = 'Enable real-time parking suggestions as you drive';
+  hideSuggestion();
+  showToast('Live tracking stopped.', 'info');
+}
+
+function onPositionUpdate(position) {
+  const { latitude: lat, longitude: lng, speed } = position.coords;
+  const now = Date.now();
+
+  // Keep user marker in sync
+  userLat = lat; userLng = lng;
+  if (map) showUserOnMap(lat, lng);
+
+  // Calculate speed: prefer GPS speed (m/s → km/h), else derive from positions
+  let speedKmh = speed != null ? speed * 3.6 : null;
+  if (speedKmh === null && lastPos && lastPosTime) {
+    const distKm  = calcDist(lastPos.lat, lastPos.lng, lat, lng);
+    const timeSec = (now - lastPosTime) / 1000;
+    speedKmh = timeSec > 1 ? (distKm / timeSec) * 3600 : 0;
+  }
+
+  const prevSpeed = lastSpeedKmh;
+  lastPos = { lat, lng };
+  lastPosTime = now;
+  lastSpeedKmh = speedKmh;
+
+  checkParkingSuggestion(lat, lng, speedKmh, prevSpeed);
+}
+
+function checkParkingSuggestion(lat, lng, speedKmh, prevSpeed) {
+  if (suggestionCooldown || suggestionVisible) return;
+
+  let reason = null;
+
+  // Trigger A: within 800 m of chosen destination
+  if (destLat !== null) {
+    const distM = calcDist(lat, lng, destLat, destLng) * 1000;
+    if (distM < 800) {
+      reason = `${Math.round(distM)} m from your destination — find parking now`;
+    }
+  }
+
+  // Trigger B: vehicle noticeably slowing (was > 25 km/h, now < 10 km/h)
+  if (!reason && prevSpeed !== null && speedKmh !== null) {
+    if (prevSpeed > 25 && speedKmh < 10) {
+      reason = `Vehicle slowing down — parking nearby?`;
+    }
+  }
+
+  // Trigger C: moving slowly in an area (likely circling for parking)
+  if (!reason && speedKmh !== null && speedKmh > 1 && speedKmh < 8) {
+    reason = `Moving slowly — looking for parking?`;
+  }
+
+  if (reason) triggerParkingSuggestion(lat, lng, reason);
+}
+
+async function triggerParkingSuggestion(lat, lng, reason) {
+  suggestionVisible = true;
+  suggestionCooldown = true;
+
+  // Show banner immediately
+  const descEl = document.getElementById('suggestionDesc');
+  if (descEl) descEl.textContent = reason;
+  const banner = document.getElementById('parkingSuggestion');
+  if (banner) banner.classList.add('show');
+
+  // Fetch real nearby parkings in background
+  try {
+    suggestedParkings = await fetchOSMParkings(lat, lng, 500, '');
+    if (descEl && suggestedParkings.length > 0) {
+      descEl.textContent = `${reason} · ${suggestedParkings.length} spots found`;
+    }
+  } catch (e) {
+    console.warn('Could not fetch suggested parkings:', e);
+  }
+
+  // Re-trigger allowed after 60 s
+  setTimeout(() => { suggestionCooldown = false; }, 60000);
+}
+
+function loadSuggestedParking() {
+  hideSuggestion();
+  if (suggestedParkings.length > 0) {
+    allParkings      = suggestedParkings;
+    filteredParkings = [...allParkings];
+    renderResults(filteredParkings);
+    showToast(`Showing ${allParkings.length} nearby parking spots.`, 'success');
+  } else if (userLat !== null) {
+    // fallback: fresh fetch
+    showLoading(true);
+    fetchOSMParkings(userLat, userLng, 500, '').then(results => {
+      allParkings = results; filteredParkings = [...allParkings];
+      renderResults(filteredParkings);
+    }).catch(() => showToast('Could not load parking data.', 'error'));
+  }
+}
+
+function hideSuggestion() {
+  suggestionVisible = false;
+  const banner = document.getElementById('parkingSuggestion');
+  if (banner) banner.classList.remove('show');
 }
 
 /* ============================================================

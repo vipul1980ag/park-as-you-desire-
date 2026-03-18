@@ -196,7 +196,25 @@
   <main class="main-content">
 
     <!-- MAP -->
-    <div id="map"></div>
+    <div id="map">
+      <!-- Live tracking P button -->
+      <button class="live-p-btn" id="livePBtn" onclick="toggleLiveTracking()" title="Enable real-time parking suggestions as you drive">
+        🅿
+      </button>
+
+      <!-- Auto-suggestion banner (slides up when triggered) -->
+      <div class="parking-suggestion-banner" id="parkingSuggestion">
+        <div class="suggestion-content">
+          <span class="suggestion-icon">🅿️</span>
+          <div class="suggestion-text">
+            <strong>Parking Nearby!</strong>
+            <span id="suggestionDesc">Spots found near your location</span>
+          </div>
+          <button class="btn btn-sm btn-primary" onclick="loadSuggestedParking()">View</button>
+          <button class="suggestion-close" onclick="hideSuggestion()" aria-label="Dismiss">×</button>
+        </div>
+      </div>
+    </div>
 
     <!-- RESULTS PANEL -->
     <div class="results-panel">

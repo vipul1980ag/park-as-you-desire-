@@ -502,23 +502,110 @@ function getGPSLocation(context) {
 }
 
 /* ============================================================
-   LOAD ALL PARKINGS (on page load)
+   OPENSTREETMAP OVERPASS API — real worldwide parking data
    ============================================================ */
-async function loadAllParkings() {
-  showLoading(true);
-  try {
-    const res = await fetch(`${API}/parkings`);
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    allParkings = Array.isArray(data) ? data : (data.parkings || data.data || []);
-    if (allParkings.length === 0) throw new Error('Empty response');
-  } catch (err) {
-    console.warn('API unavailable, using mock data:', err.message);
-    allParkings = MOCK_PARKINGS;
+async function fetchOSMParkings(lat, lng, radiusMeters, typeFilter) {
+  // Build Overpass QL — fetch all amenity=parking nodes + ways in radius
+  let filter = '';
+  if (typeFilter === 'street_side') {
+    filter = '["amenity"="parking"]["parking"~"street_side|on_street"]';
+  } else if (typeFilter === 'multi-storey') {
+    filter = '["amenity"="parking"]["parking"="multi-storey"]';
+  } else if (typeFilter === 'underground') {
+    filter = '["amenity"="parking"]["parking"="underground"]';
+  } else if (typeFilter === 'private') {
+    filter = '["amenity"="parking"]["access"~"private|customers"]';
+  } else if (typeFilter === 'surface') {
+    filter = '["amenity"="parking"]["parking"~"surface|rooftop"]';
+  } else {
+    filter = '["amenity"="parking"]';
   }
 
+  const query = `[out:json][timeout:30];(node${filter}(around:${radiusMeters},${lat},${lng});way${filter}(around:${radiusMeters},${lat},${lng}););out center;`;
+
+  const res = await fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    body: query
+  });
+  if (!res.ok) throw new Error(`Overpass API ${res.status}`);
+  const data = await res.json();
+
+  return data.elements
+    .map(el => convertOSMToParking(el, lat, lng))
+    .filter(p => p.lat && p.lng);
+}
+
+function convertOSMToParking(el, refLat, refLng) {
+  const tags   = el.tags || {};
+  const elLat  = el.lat  ?? el.center?.lat;
+  const elLng  = el.lon  ?? el.center?.lon;
+  const parking = (tags.parking || '').toLowerCase();
+  const access  = (tags.access  || '').toLowerCase();
+  const fee     = (tags.fee     || '').toLowerCase();
+
+  // Map OSM tags → internal type
+  let typeId = 1, typeName = 'Parking';
+  if (parking === 'multi-storey') {
+    typeId = 7; typeName = 'Multi-Storey Car Park';
+  } else if (parking === 'underground' || parking === 'basement') {
+    typeId = 7; typeName = 'Underground Car Park';
+  } else if (parking === 'street_side' || parking === 'on_street') {
+    typeId = 2; typeName = 'Street Parking';
+  } else if (access === 'private' || access === 'customers' || access === 'permit') {
+    typeId = 3; typeName = 'Private Parking';
+  } else if (parking === 'surface' || parking === 'rooftop') {
+    typeId = 5; typeName = 'Surface Car Park';
+  } else {
+    typeId = 1; typeName = 'Public Parking';
+  }
+
+  const capacity = parseInt(tags.capacity) || null;
+  const costPerHour = fee === 'no' ? 0 : fee === 'yes' ? null : null;
+
+  // Address
+  const addrParts = [
+    tags['addr:housenumber'],
+    tags['addr:street'],
+    tags['addr:suburb'] || tags['addr:city']
+  ].filter(Boolean);
+  const address = addrParts.length ? addrParts.join(', ') : (tags['addr:full'] || 'See map for location');
+
+  // Description from OSM tags
+  const descParts = [
+    tags.operator      ? `Operator: ${tags.operator}` : null,
+    tags.opening_hours ? `Hours: ${tags.opening_hours}` : null,
+    tags.maxstay       ? `Max stay: ${tags.maxstay}` : null,
+    fee === 'no'       ? 'Free parking' : fee === 'yes' ? 'Paid parking' : null,
+    tags.surface       ? `Surface: ${tags.surface}` : null,
+  ].filter(Boolean);
+
+  return {
+    _id: `osm_${el.id}`,
+    name: tags.name || typeName,
+    address,
+    lat: elLat,
+    lng: elLng,
+    type: typeId,
+    typeName,
+    costPerHour,
+    costPerDay: null,
+    totalSpots: capacity,
+    availableSpots: capacity,
+    availableDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    openTime: null,
+    closeTime: null,
+    description: descParts.join(' · ') || '',
+    isActive: true,
+    distance: elLat && elLng ? calcDist(refLat, refLng, elLat, elLng) : null
+  };
+}
+
+/* ============================================================
+   LOAD ALL PARKINGS (on page load — show mock until user searches)
+   ============================================================ */
+async function loadAllParkings() {
+  allParkings      = MOCK_PARKINGS;
   filteredParkings = [...allParkings];
-  showLoading(false);
   renderResults(filteredParkings);
 }
 
@@ -526,42 +613,37 @@ async function loadAllParkings() {
    SEARCH PARKING (Planner tab)
    ============================================================ */
 async function searchParking() {
-  const to       = document.getElementById('plannerTo').value.trim();
-  const date     = document.getElementById('plannerDate').value;
-  const time     = document.getElementById('plannerTime').value;
   const type     = document.getElementById('plannerType').value;
+  const radius   = parseInt(document.getElementById('plannerRadius').value) || 2000;
   const priority = document.querySelector('input[name="priority"]:checked')?.value || 'distance';
 
   const btn = document.getElementById('searchBtn');
   setButtonLoading(btn, true, '🔍 Search Parking');
 
-  // Use destination coords (from autocomplete) for distance sorting; fall back to user GPS
+  // Prefer destination coords; fall back to user GPS
   const refLat = destLat !== null ? destLat : userLat;
   const refLng = destLng !== null ? destLng : userLng;
 
-  try {
-    const params = new URLSearchParams();
-    if (to)   params.set('destination', to);
-    if (date) params.set('date', date);
-    if (time) params.set('time', time);
-    if (type) params.set('type', type);
-    if (refLat !== null) { params.set('lat', refLat); params.set('lng', refLng); }
-    params.set('priority', priority);
+  if (refLat === null) {
+    showToast('Please enter a destination or detect your location first.', 'warning');
+    setButtonLoading(btn, false, '🔍 Search Parking');
+    return;
+  }
 
-    const res = await fetch(`${API}/parkings?${params.toString()}`);
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    allParkings = Array.isArray(data) ? data : (data.parkings || data.data || []);
-    if (allParkings.length === 0) throw new Error('Empty');
-  } catch (err) {
-    console.warn('Search API failed, using mock data:', err.message);
-    allParkings = filterMockByType(type);
-    if (refLat !== null) {
-      allParkings = allParkings.map(p => ({
-        ...p,
-        distance: p.lat && p.lng ? calcDist(refLat, refLng, p.lat, p.lng) : null
-      }));
+  showLoading(true);
+
+  try {
+    allParkings = await fetchOSMParkings(refLat, refLng, radius, type);
+    if (allParkings.length === 0) {
+      showToast('No parking found in this area on OpenStreetMap. Try a larger radius.', 'warning');
     }
+  } catch (err) {
+    console.warn('OSM fetch failed, using mock data:', err.message);
+    showToast('Could not reach OpenStreetMap — showing sample data.', 'warning');
+    allParkings = MOCK_PARKINGS.map(p => ({
+      ...p,
+      distance: calcDist(refLat, refLng, p.lat, p.lng)
+    }));
   }
 
   applyPrioritySort(priority);
@@ -569,9 +651,12 @@ async function searchParking() {
   document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
   filteredParkings = [...allParkings];
   renderResults(filteredParkings);
-  showToast(`Found ${filteredParkings.length} parking spots.`, 'success');
+  if (allParkings.length > 0) showToast(`Found ${allParkings.length} parking spots.`, 'success');
 
-  if (destLat !== null && map) map.setView([destLat, destLng], 13);
+  if (map) {
+    const center = destLat !== null ? [destLat, destLng] : [userLat, userLng];
+    map.setView(center, 14);
+  }
 
   setButtonLoading(btn, false, '🔍 Search Parking');
 }
@@ -585,30 +670,25 @@ async function trackSearch() {
     return;
   }
 
-  const to       = document.getElementById('trackTo').value.trim();
   const type     = document.getElementById('trackType').value;
+  const radius   = parseInt(document.getElementById('trackRadius').value) || 1000;
   const priority = document.querySelector('input[name="trackPriority"]:checked')?.value || 'distance';
 
   const btn = document.getElementById('trackSearchBtn');
   setButtonLoading(btn, true, '📍 Find Parking Near Me');
+  showLoading(true);
 
   try {
-    const params = new URLSearchParams({ lat: userLat, lng: userLng });
-    if (to)       params.set('destination', to);
-    if (type)     params.set('type', type);
-    if (priority) params.set('priority', priority);
-
-    const res = await fetch(`${API}/parkings/nearby?${params.toString()}`);
-    if (!res.ok) throw new Error(`API error ${res.status}`);
-    const data = await res.json();
-    allParkings = Array.isArray(data) ? data : (data.parkings || data.data || []);
-    if (allParkings.length === 0) throw new Error('Empty');
+    allParkings = await fetchOSMParkings(userLat, userLng, radius, type);
+    if (allParkings.length === 0) {
+      showToast('No parking found nearby on OpenStreetMap. Try a larger radius.', 'warning');
+    }
   } catch (err) {
-    console.warn('Nearby API failed, using mock data:', err.message);
-    allParkings = filterMockByType(type);
-    allParkings = allParkings.map(p => ({
+    console.warn('OSM fetch failed, using mock data:', err.message);
+    showToast('Could not reach OpenStreetMap — showing sample data.', 'warning');
+    allParkings = MOCK_PARKINGS.map(p => ({
       ...p,
-      distance: p.lat && p.lng ? calcDist(userLat, userLng, p.lat, p.lng) : null
+      distance: calcDist(userLat, userLng, p.lat, p.lng)
     }));
   }
 
@@ -617,7 +697,7 @@ async function trackSearch() {
   document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
   filteredParkings = [...allParkings];
   renderResults(filteredParkings);
-  showToast(`Found ${filteredParkings.length} nearby spots.`, 'success');
+  if (allParkings.length > 0) showToast(`Found ${allParkings.length} nearby spots.`, 'success');
 
   setButtonLoading(btn, false, '📍 Find Parking Near Me');
 }
@@ -645,10 +725,13 @@ function applyFilter(filter, chipEl) {
       }
       break;
     case 'private':
-      results = results.filter(p => [1, 3, 4, 5, 6, 7, 8, 9].includes(parseInt(p.type, 10)));
+      results = results.filter(p => parseInt(p.type, 10) === 3 ||
+        (p.typeName && p.typeName.toLowerCase().includes('private')));
       break;
     case 'public':
-      results = results.filter(p => parseInt(p.type, 10) === 2);
+      results = results.filter(p => parseInt(p.type, 10) === 2 ||
+        (p.typeName && (p.typeName.toLowerCase().includes('street') ||
+                        p.typeName.toLowerCase().includes('public'))));
       break;
     default:
       break;
@@ -674,14 +757,6 @@ function applyPrioritySort(priority) {
   } else if (priority === 'type') {
     allParkings.sort((a, b) => (a.type || 9) - (b.type || 9));
   }
-}
-
-/* ============================================================
-   FILTER MOCK BY TYPE
-   ============================================================ */
-function filterMockByType(type) {
-  if (!type) return MOCK_PARKINGS;
-  return MOCK_PARKINGS.filter(p => String(p.type) === String(type));
 }
 
 /* ============================================================

@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "Park As You Desire",
+    "slug": "park-as-you-desire",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#1a3c5e"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Park As You Desire needs your location to find nearby parking spots.",
+        "NSLocationAlwaysUsageDescription": "Park As You Desire needs your location to suggest parking spots along your route."
+      }
+    },
+    "android": {
+      "package": "com.dnextwelt.parkasynoudesire",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Park As You Desire to use your location."
+        }
+      ]
+    ]
+  }
+}

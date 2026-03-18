@@ -291,6 +291,38 @@
 <!-- TOAST CONTAINER -->
 <div class="toast-container" id="toastContainer"></div>
 
+<!-- ===== AI PARKING ASSISTANT ===== -->
+<button class="ai-fab" id="aiFab" onclick="toggleAIPanel()" title="Ask ParkBot AI Assistant">
+  🤖
+</button>
+
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-panel-header">
+    <div class="ai-panel-avatar">P</div>
+    <div class="ai-panel-title">
+      <strong>ParkBot</strong>
+      <span>AI Parking Assistant · Powered by Claude</span>
+    </div>
+    <button class="ai-panel-close" onclick="toggleAIPanel()" aria-label="Close">×</button>
+  </div>
+
+  <div class="ai-messages" id="aiMessages">
+    <!-- Welcome message rendered by JS -->
+  </div>
+
+  <div class="ai-suggestions" id="aiSuggestions">
+    <button class="ai-suggestion-chip" onclick="aiSendQuick('Find cheap parking near me')">💰 Cheap nearby</button>
+    <button class="ai-suggestion-chip" onclick="aiSendQuick('What parking type is safest?')">🔒 Safest type</button>
+    <button class="ai-suggestion-chip" onclick="aiSendQuick('Estimate cost for 3 hours')">⏱ Cost estimate</button>
+  </div>
+
+  <div class="ai-input-row">
+    <input type="text" id="aiInput" placeholder="Ask anything about parking…" autocomplete="off"
+      onkeydown="if(event.key==='Enter')aiSend()" />
+    <button class="ai-send-btn" id="aiSendBtn" onclick="aiSend()" title="Send">➤</button>
+  </div>
+</div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="portal.js"></script>
 </body>

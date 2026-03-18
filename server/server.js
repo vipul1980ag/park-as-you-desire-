@@ -4,6 +4,7 @@ const path = require('path');
 
 const parkingsRouter = require('./routes/parkings');
 const ownerRouter = require('./routes/owner');
+const aiRouter = require('./routes/ai');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -26,6 +27,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 // Routes
 app.use('/api/parkings', parkingsRouter);
 app.use('/api/owner', ownerRouter);
+app.use('/api/ai', aiRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

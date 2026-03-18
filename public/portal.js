@@ -1287,3 +1287,196 @@ function formatDist(km) {
   if (km < 1) return `${Math.round(km * 1000)}m`;
   return `${km.toFixed(1)}km`;
 }
+
+/* ============================================================
+   AI PARKING ASSISTANT (ParkBot)
+   ============================================================ */
+
+let aiOpen       = false;
+let aiHistory    = [];   // [{role, content}]
+let aiStreaming   = false;
+
+function toggleAIPanel() {
+  aiOpen = !aiOpen;
+  document.getElementById('aiPanel').classList.toggle('open', aiOpen);
+  if (aiOpen && aiHistory.length === 0) {
+    aiAddBotMessage(
+      "Hi! I'm **ParkBot**, your AI parking assistant. 🅿️\n" +
+      "Ask me anything — find parking near a destination, compare costs, get recommendations, or estimate how much you'll pay."
+    );
+  }
+  if (aiOpen) setTimeout(() => document.getElementById('aiInput')?.focus(), 300);
+}
+
+function aiAddBotMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'ai-msg bot';
+  div.innerHTML = aiMarkdown(text);
+  document.getElementById('aiMessages').appendChild(div);
+  aiScrollToBottom();
+  return div;
+}
+
+function aiAddUserMessage(text) {
+  const div = document.createElement('div');
+  div.className = 'ai-msg user';
+  div.textContent = text;
+  document.getElementById('aiMessages').appendChild(div);
+  aiScrollToBottom();
+}
+
+function aiScrollToBottom() {
+  const el = document.getElementById('aiMessages');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+// Very small markdown renderer (bold, newlines)
+function aiMarkdown(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+function aiSendQuick(text) {
+  document.getElementById('aiInput').value = text;
+  aiSend();
+}
+
+async function aiSend() {
+  if (aiStreaming) return;
+  const input = document.getElementById('aiInput');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  aiAddUserMessage(text);
+  aiHistory.push({ role: 'user', content: text });
+
+  // Build context from current app state
+  const context = {};
+  if (userLat !== null) { context.userLat = userLat; context.userLng = userLng; }
+  if (destLat !== null) { context.destLat = destLat; context.destLng = destLng; }
+  if (filteredParkings.length > 0) context.parkings = filteredParkings;
+
+  // Typing indicator
+  const typingEl = document.createElement('div');
+  typingEl.className = 'ai-msg bot typing';
+  typingEl.textContent = 'ParkBot is thinking…';
+  document.getElementById('aiMessages').appendChild(typingEl);
+  aiScrollToBottom();
+
+  aiStreaming = true;
+  document.getElementById('aiSendBtn').disabled = true;
+
+  let fullText = '';
+  let botDiv   = null;
+
+  try {
+    const res = await fetch('/api/ai/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: aiHistory, context })
+    });
+
+    if (!res.ok) throw new Error(`Server ${res.status}`);
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete line
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = JSON.parse(line.slice(6));
+
+        if (payload.type === 'delta') {
+          if (!botDiv) {
+            typingEl.remove();
+            botDiv = document.createElement('div');
+            botDiv.className = 'ai-msg bot';
+            document.getElementById('aiMessages').appendChild(botDiv);
+          }
+          fullText += payload.text;
+          // Strip <action> tags from displayed text
+          const display = fullText.replace(/<action>[\s\S]*?<\/action>/g, '').trim();
+          botDiv.innerHTML = aiMarkdown(display);
+          // Append action chip if action detected in streamed so far
+          const actionMatch = fullText.match(/<action>([\s\S]*?)<\/action>/);
+          aiUpdateActionChip(botDiv, actionMatch ? actionMatch[1] : null);
+          aiScrollToBottom();
+        } else if (payload.type === 'done') {
+          break;
+        } else if (payload.type === 'error') {
+          typingEl.remove();
+          aiAddBotMessage('Sorry, I had trouble connecting. Please try again.');
+        }
+      }
+    }
+
+    aiHistory.push({ role: 'assistant', content: fullText });
+  } catch (err) {
+    typingEl.remove();
+    console.error('ParkBot error:', err);
+    aiAddBotMessage('⚠️ Could not reach ParkBot. Make sure the server is running with an ANTHROPIC_API_KEY.');
+  } finally {
+    aiStreaming = false;
+    document.getElementById('aiSendBtn').disabled = false;
+  }
+}
+
+function aiUpdateActionChip(container, actionJson) {
+  // Remove existing chip if present
+  container.querySelectorAll('.ai-action-chip').forEach(c => c.remove());
+  if (!actionJson) return;
+  try {
+    const action = JSON.parse(actionJson.trim());
+    if (action.type === 'search' && action.destination) {
+      const chip = document.createElement('button');
+      chip.className = 'ai-action-chip';
+      chip.innerHTML = `🔍 Search: ${escHtml(action.destination)}`;
+      chip.onclick = () => aiExecuteSearch(action);
+      container.appendChild(document.createElement('br'));
+      container.appendChild(chip);
+    }
+  } catch (_) { /* malformed action — ignore */ }
+}
+
+function aiExecuteSearch(action) {
+  // Populate planner fields and trigger search
+  if (action.destination) {
+    const fromEl = document.getElementById('plannerTo');
+    if (fromEl) {
+      fromEl.value = action.destination;
+      // Trigger geocode so the app knows where to search
+      geocodeAddress(action.destination).then(coords => {
+        if (coords) {
+          destLat = coords.lat;
+          destLng = coords.lng;
+          searchParking();
+          switchTab('planner');
+          if (map) map.setView([coords.lat, coords.lng], 14);
+          showToast(`Searching parking near ${action.destination}`, 'success');
+        }
+      }).catch(() => showToast('Could not geocode destination', 'warning'));
+    }
+  }
+}
+
+/* Geocode a place name using Photon (same service as the autocomplete) */
+async function geocodeAddress(query) {
+  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=en`;
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error('Geocode failed');
+  const data = await res.json();
+  if (!data.features || !data.features.length) return null;
+  const [lng, lat] = data.features[0].geometry.coordinates;
+  return { lat, lng };
+}

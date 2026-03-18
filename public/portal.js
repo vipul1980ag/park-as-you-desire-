@@ -1,6 +1,5 @@
 /* ============================================================
    Park As You Desire — Driver Portal (portal.js)
-   API: http://localhost:3002/api
    ============================================================ */
 
 'use strict';
@@ -12,9 +11,17 @@ let allParkings      = [];
 let filteredParkings = [];
 let userLat          = null;
 let userLng          = null;
+let destLat          = null;
+let destLng          = null;
 let activeTab        = 'planner';
 let activeFilter     = 'all';
 let selectedParking  = null;
+
+/* Map state */
+let map            = null;
+let userMarker     = null;
+let parkingMarkers = [];
+let modalMiniMap   = null;
 
 /* ============================================================
    MOCK DATA (used if API is unavailable)
@@ -125,34 +132,277 @@ function getTypeBadgeClass(type) {
 
 function getCardBorderClass(type) {
   const t = parseInt(type, 10);
-  if (t === 1) return '';                    // default blue
-  if (t === 2) return 'type-street';         // green
-  if (t === 3) return 'type-private-open';   // purple
-  if (t <= 6)  return 'type-unlocked';       // orange
-  return 'type-locked';                      // red
+  if (t === 1) return '';
+  if (t === 2) return 'type-street';
+  if (t === 3) return 'type-private-open';
+  if (t <= 6)  return 'type-unlocked';
+  return 'type-locked';
 }
 
 function getTypeName(p) {
   return p.typeName || TYPE_NAMES[p.type] || `Type ${p.type}`;
 }
 
+function getTypeColor(type) {
+  const t = parseInt(type, 10);
+  if (t === 1) return '#3498db';
+  if (t === 2) return '#27ae60';
+  if (t === 3) return '#9b59b6';
+  if (t <= 6)  return '#e67e22';
+  return '#e74c3c';
+}
+
 /* ============================================================
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  // Set default date/time
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
   const timeInput = document.getElementById('plannerTime');
   if (dateInput) dateInput.value = now.toISOString().slice(0, 10);
   if (timeInput) timeInput.value = now.toTimeString().slice(0, 5);
 
-  // Wire up priority radios
   wirePriorityOptions();
-
-  // Fetch all parkings on load
+  initMap();
+  setupAllAutocompletes();
+  autoDetectGPS();
   loadAllParkings();
 });
+
+/* ============================================================
+   MAP — LEAFLET
+   ============================================================ */
+function initMap() {
+  if (typeof L === 'undefined') return;
+  map = L.map('map', { zoomControl: true }).setView([51.5074, -0.1278], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+}
+
+function showUserOnMap(lat, lng) {
+  if (!map) return;
+  if (userMarker) map.removeLayer(userMarker);
+  userMarker = L.circleMarker([lat, lng], {
+    radius: 9,
+    fillColor: '#1a3c5e',
+    color: '#fff',
+    weight: 3,
+    opacity: 1,
+    fillOpacity: 1
+  }).addTo(map).bindPopup('<strong>📍 You are here</strong>');
+  map.setView([lat, lng], 14);
+}
+
+function renderMapMarkers(list) {
+  if (!map) return;
+  parkingMarkers.forEach(m => map.removeLayer(m));
+  parkingMarkers = [];
+
+  list.forEach(p => {
+    if (!p.lat || !p.lng) return;
+    const color    = getTypeColor(p.type);
+    const spotsNum = parseInt(p.availableSpots, 10);
+    const available = isNaN(spotsNum) || spotsNum > 0;
+    const costStr  = p.costPerHour != null ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr` : 'Free';
+    const spots    = p.availableSpots != null ? p.availableSpots : '?';
+    const spotsLabel = spotsNum === 0
+      ? '<span style="color:#e74c3c">Full</span>'
+      : `<span style="color:#27ae60">${spots} spots free</span>`;
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        background:${color};color:#fff;
+        width:30px;height:30px;
+        border-radius:50% 50% 50% 0;
+        transform:rotate(-45deg);
+        border:2px solid #fff;
+        box-shadow:0 2px 6px rgba(0,0,0,0.35);
+        display:flex;align-items:center;justify-content:center;
+        opacity:${available ? 1 : 0.5};
+      "><span style="transform:rotate(45deg);font-size:13px;font-weight:900;">P</span></div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30],
+      popupAnchor: [0, -34]
+    });
+
+    const pid = p._id || p.id || '';
+    const marker = L.marker([p.lat, p.lng], { icon })
+      .addTo(map)
+      .bindPopup(`
+        <div style="min-width:170px;">
+          <strong style="font-size:13px;">${escHtml(p.name || 'Parking')}</strong><br>
+          <small style="color:#7f8c8d;">${escHtml(p.address || '')}</small>
+          <div style="margin-top:6px;font-size:12px;">
+            <strong>${costStr}</strong> · ${spotsLabel}
+          </div>
+          <button onclick="openModal('${pid}')" style="
+            margin-top:8px;background:#1a3c5e;color:#fff;
+            border:none;padding:5px 10px;border-radius:4px;
+            font-size:11px;cursor:pointer;width:100%;
+          ">View Details →</button>
+        </div>
+      `);
+
+    parkingMarkers.push(marker);
+  });
+
+  if (parkingMarkers.length > 0) {
+    const group = L.featureGroup(parkingMarkers);
+    map.fitBounds(group.getBounds().pad(0.2));
+  }
+}
+
+/* ============================================================
+   MODAL MINI-MAP
+   ============================================================ */
+function initModalMap(lat, lng, name) {
+  if (typeof L === 'undefined') return;
+  if (modalMiniMap) { modalMiniMap.remove(); modalMiniMap = null; }
+  const container = document.getElementById('modalMapContainer');
+  if (!container) return;
+
+  modalMiniMap = L.map(container, { zoomControl: true, scrollWheelZoom: false })
+    .setView([lat, lng], 15);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors',
+    maxZoom: 19
+  }).addTo(modalMiniMap);
+  L.marker([lat, lng]).addTo(modalMiniMap)
+    .bindPopup(`<strong>${escHtml(name || 'Parking')}</strong>`).openPopup();
+  setTimeout(() => modalMiniMap && modalMiniMap.invalidateSize(), 150);
+}
+
+/* ============================================================
+   AUTOCOMPLETE — Nominatim (OpenStreetMap, free, no API key)
+   ============================================================ */
+function setupAllAutocompletes() {
+  // Planner From — updates userLat/userLng + centers map on user
+  setupAutocomplete('plannerFrom', 'plannerFromDropdown', (name, lat, lng) => {
+    document.getElementById('plannerFrom').value = name;
+    userLat = lat; userLng = lng;
+    if (map) showUserOnMap(lat, lng);
+  });
+
+  // Planner To — updates destLat/destLng + pans map
+  setupAutocomplete('plannerTo', 'plannerToDropdown', (name, lat, lng) => {
+    document.getElementById('plannerTo').value = name;
+    destLat = lat; destLng = lng;
+    if (map) map.setView([lat, lng], 13);
+  });
+
+  // Track To — updates destLat/destLng + pans map
+  setupAutocomplete('trackTo', 'trackToDropdown', (name, lat, lng) => {
+    document.getElementById('trackTo').value = name;
+    destLat = lat; destLng = lng;
+    if (map) map.setView([lat, lng], 13);
+  });
+}
+
+function setupAutocomplete(inputId, dropdownId, onSelect) {
+  const input    = document.getElementById(inputId);
+  const dropdown = document.getElementById(dropdownId);
+  if (!input || !dropdown) return;
+
+  let timer = null;
+
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if (q.length < 3) { closeDropdown(dropdown); return; }
+    timer = setTimeout(() => nominatimSearch(q, dropdown, onSelect, input), 500);
+  });
+
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeDropdown(dropdown);
+    if (e.key === 'ArrowDown') {
+      const first = dropdown.querySelector('.autocomplete-item');
+      if (first) first.focus();
+    }
+  });
+
+  document.addEventListener('click', e => {
+    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+      closeDropdown(dropdown);
+    }
+  });
+}
+
+function closeDropdown(dropdown) {
+  dropdown.innerHTML = '';
+  dropdown.classList.remove('open');
+}
+
+async function nominatimSearch(query, dropdown, onSelect, input) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=0`;
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    if (!res.ok) return;
+    const results = await res.json();
+    if (!results.length) { closeDropdown(dropdown); return; }
+
+    dropdown.innerHTML = results.map(r =>
+      `<div class="autocomplete-item" tabindex="0"
+         data-lat="${r.lat}" data-lng="${r.lon}"
+         data-name="${escHtml(r.display_name)}">
+         📍 ${escHtml(r.display_name)}
+       </div>`
+    ).join('');
+    dropdown.classList.add('open');
+
+    dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+      item.addEventListener('click', () => selectItem(item, dropdown, onSelect));
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter') selectItem(item, dropdown, onSelect);
+        if (e.key === 'ArrowDown' && item.nextElementSibling) item.nextElementSibling.focus();
+        if (e.key === 'ArrowUp') {
+          if (item.previousElementSibling) item.previousElementSibling.focus();
+          else input.focus();
+        }
+        if (e.key === 'Escape') { closeDropdown(dropdown); input.focus(); }
+      });
+    });
+  } catch (err) {
+    console.warn('Nominatim error:', err.message);
+  }
+}
+
+function selectItem(item, dropdown, onSelect) {
+  const lat  = parseFloat(item.dataset.lat);
+  const lng  = parseFloat(item.dataset.lng);
+  const name = item.dataset.name;
+  onSelect(name, lat, lng);
+  closeDropdown(dropdown);
+}
+
+/* ============================================================
+   AUTO-DETECT GPS ON PAGE LOAD
+   ============================================================ */
+function autoDetectGPS() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      userLat = pos.coords.latitude;
+      userLng = pos.coords.longitude;
+      const locStr = `${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
+
+      const fromInput = document.getElementById('plannerFrom');
+      if (fromInput && !fromInput.value) fromInput.value = locStr;
+
+      const locEl  = document.getElementById('detectedLoc');
+      const textEl = document.getElementById('detectedLocText');
+      if (textEl) textEl.textContent = locStr;
+      if (locEl)  locEl.classList.add('show');
+
+      if (map) showUserOnMap(userLat, userLng);
+      showToast('📍 Location detected automatically!', 'success');
+    },
+    () => {}, // silent fail — user can click 📍 button manually
+    { timeout: 8000, maximumAge: 300000 }
+  );
+}
 
 /* ============================================================
    PRIORITY RADIO WIRING
@@ -182,7 +432,7 @@ function switchTab(tab) {
 }
 
 /* ============================================================
-   GPS LOCATION
+   GPS LOCATION (manual button)
    ============================================================ */
 function getGPSLocation(context) {
   if (!navigator.geolocation) {
@@ -205,26 +455,26 @@ function getGPSLocation(context) {
     pos => {
       userLat = pos.coords.latitude;
       userLng = pos.coords.longitude;
-
       const locStr = `${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
 
       if (context === 'planner') {
         const fromInput = document.getElementById('plannerFrom');
         if (fromInput) fromInput.value = locStr;
-        showToast('📍 Location detected!', 'success');
         if (btn) { btn.disabled = false; btn.innerHTML = '📍'; }
       } else {
         const locEl  = document.getElementById('detectedLoc');
         const textEl = document.getElementById('detectedLocText');
         if (textEl) textEl.textContent = locStr;
         if (locEl)  locEl.classList.add('show');
-        showToast('📍 Location detected!', 'success');
         if (btn) { btn.disabled = false; btn.innerHTML = '📍 Detect My Location'; }
       }
+
+      if (map) showUserOnMap(userLat, userLng);
+      showToast('📍 Location detected!', 'success');
     },
     err => {
       let msg = 'Could not detect location.';
-      if (err.code === 1) msg = 'Location access denied. Please allow location permission.';
+      if (err.code === 1) msg = 'Location access denied. Please allow location in your browser settings.';
       if (err.code === 2) msg = 'Location unavailable. Please try again.';
       if (err.code === 3) msg = 'Location request timed out.';
       showToast(msg, 'error');
@@ -232,9 +482,6 @@ function getGPSLocation(context) {
         btn.disabled = false;
         btn.innerHTML = context === 'planner' ? '📍' : '📍 Detect My Location';
       }
-      // Use a default location for demo
-      userLat = 51.5074;
-      userLng = -0.1278;
     },
     { timeout: 10000, maximumAge: 60000 }
   );
@@ -274,13 +521,17 @@ async function searchParking() {
   const btn = document.getElementById('searchBtn');
   setButtonLoading(btn, true, '🔍 Search Parking');
 
+  // Use destination coords (from autocomplete) for distance sorting; fall back to user GPS
+  const refLat = destLat !== null ? destLat : userLat;
+  const refLng = destLng !== null ? destLng : userLng;
+
   try {
     const params = new URLSearchParams();
     if (to)   params.set('destination', to);
     if (date) params.set('date', date);
     if (time) params.set('time', time);
     if (type) params.set('type', type);
-    if (userLat !== null) { params.set('lat', userLat); params.set('lng', userLng); }
+    if (refLat !== null) { params.set('lat', refLat); params.set('lng', refLng); }
     params.set('priority', priority);
 
     const res = await fetch(`${API}/parkings?${params.toString()}`);
@@ -289,17 +540,24 @@ async function searchParking() {
     allParkings = Array.isArray(data) ? data : (data.parkings || data.data || []);
     if (allParkings.length === 0) throw new Error('Empty');
   } catch (err) {
-    console.warn('Search API failed, filtering mock data:', err.message);
+    console.warn('Search API failed, using mock data:', err.message);
     allParkings = filterMockByType(type);
+    if (refLat !== null) {
+      allParkings = allParkings.map(p => ({
+        ...p,
+        distance: p.lat && p.lng ? calcDist(refLat, refLng, p.lat, p.lng) : null
+      }));
+    }
   }
 
-  // Client-side sort based on priority
   applyPrioritySort(priority);
   activeFilter = 'all';
   document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
   filteredParkings = [...allParkings];
   renderResults(filteredParkings);
   showToast(`Found ${filteredParkings.length} parking spots.`, 'success');
+
+  if (destLat !== null && map) map.setView([destLat, destLng], 13);
 
   setButtonLoading(btn, false, '🔍 Search Parking');
 }
@@ -334,7 +592,6 @@ async function trackSearch() {
   } catch (err) {
     console.warn('Nearby API failed, using mock data:', err.message);
     allParkings = filterMockByType(type);
-    // Calculate distance for mock data
     allParkings = allParkings.map(p => ({
       ...p,
       distance: p.lat && p.lng ? calcDist(userLat, userLng, p.lat, p.lng) : null
@@ -369,7 +626,6 @@ function applyFilter(filter, chipEl) {
       results = results.filter(p => p.distance != null);
       results.sort((a, b) => a.distance - b.distance);
       if (results.length === 0) {
-        // no distance data — keep all, show note
         results = [...allParkings];
         showToast('No distance data available. Showing all results.', 'warning');
       }
@@ -430,10 +686,12 @@ function renderResults(list) {
         <h3>No Parking Found</h3>
         <p>Try adjusting your search filters or widening your area.</p>
       </div>`;
+    renderMapMarkers([]);
     return;
   }
 
   body.innerHTML = `<div class="parking-grid">${list.map(renderCard).join('')}</div>`;
+  renderMapMarkers(list);
 }
 
 function renderCard(p) {
@@ -475,7 +733,7 @@ function renderCard(p) {
         </div>
       </div>
       <div class="card-address">📌 ${escHtml(p.address || 'Address not available')}</div>
-      <div class="card-price">${costStr}${p.costPerHour || p.costPerDay ? '' : ''}</div>
+      <div class="card-price">${costStr}</div>
       <div class="card-meta">
         <span class="spots-badge ${spotsCls}">
           ${spots === '?' ? '? spots' : (spotsNum === 0 ? 'Full' : `${spots} spots free`)}
@@ -503,11 +761,15 @@ function openModal(id) {
   document.getElementById('modalBody').innerHTML = buildModalBody(p);
   document.getElementById('detailModal').classList.add('open');
   document.body.style.overflow = 'hidden';
+
+  if (p.lat && p.lng) {
+    setTimeout(() => initModalMap(p.lat, p.lng, p.name), 120);
+  }
 }
 
 function buildModalBody(p) {
-  const lat      = p.lat  || p.latitude  || '—';
-  const lng      = p.lng  || p.longitude || '—';
+  const lat      = p.lat  || p.latitude  || null;
+  const lng      = p.lng  || p.longitude || null;
   const typeName = getTypeName(p);
   const typeNum  = parseInt(p.type, 10);
   const badgeCls = getTypeBadgeClass(typeNum);
@@ -516,18 +778,14 @@ function buildModalBody(p) {
   const costDay  = p.costPerDay  != null ? `£${parseFloat(p.costPerDay).toFixed(2)}`  : 'N/A';
   const spots    = p.availableSpots != null ? p.availableSpots : (p.available != null ? p.available : '?');
   const hours    = `${p.openTime || p.availableFrom || '—'} – ${p.closeTime || p.availableTo || '—'}`;
-
-  const distStr  = p.distance != null ? formatDist(p.distance) : '—';
+  const distStr  = p.distance != null ? formatDist(p.distance) : null;
   const desc     = p.description || p.desc || '';
 
   return `
-    <div class="map-placeholder">
-      📍
-      <small>${lat}, ${lng}</small>
-    </div>
+    ${lat && lng ? '<div id="modalMapContainer" class="modal-map"></div>' : ''}
     <div style="margin-bottom:12px;">
-      <span class="badge ${badgeCls}" style="font-size:13px; padding:4px 12px;">${escHtml(typeName)}</span>
-      ${p.distance != null ? `<span class="badge badge-dist" style="margin-left:6px;">${distStr} away</span>` : ''}
+      <span class="badge ${badgeCls}" style="font-size:13px;padding:4px 12px;">${escHtml(typeName)}</span>
+      ${distStr ? `<span class="badge badge-dist" style="margin-left:6px;">${distStr} away</span>` : ''}
     </div>
     <div class="detail-grid">
       <div class="detail-item">
@@ -536,7 +794,7 @@ function buildModalBody(p) {
       </div>
       <div class="detail-item">
         <label>Coordinates</label>
-        <span style="font-size:12px; font-family:monospace;">${lat}, ${lng}</span>
+        <span style="font-size:12px;font-family:monospace;">${lat != null ? `${lat}, ${lng}` : '—'}</span>
       </div>
       <div class="detail-item">
         <label>Cost Per Hour</label>
@@ -570,14 +828,13 @@ function buildModalBody(p) {
 function closeModal() {
   document.getElementById('detailModal').classList.remove('open');
   document.body.style.overflow = '';
+  if (modalMiniMap) { modalMiniMap.remove(); modalMiniMap = null; }
 }
 
-// Close modal on overlay click
 document.getElementById('detailModal').addEventListener('click', function(e) {
   if (e.target === this) closeModal();
 });
 
-// Close modal on Escape
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeModal();
 });
@@ -644,13 +901,11 @@ function setButtonLoading(btn, loading, label) {
 function showToast(message, type = 'info') {
   const container = document.getElementById('toastContainer');
   if (!container) return;
-
   const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
   toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span> ${escHtml(message)}`;
   container.appendChild(toast);
-
   setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
 }
 
@@ -663,7 +918,6 @@ function escHtml(str) {
 }
 
 function calcDist(lat1, lon1, lat2, lon2) {
-  // Haversine formula — returns km
   const R = 6371;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);

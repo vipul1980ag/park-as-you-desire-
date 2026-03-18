@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Find Parking — Park As You Desire</title>
   <link rel="stylesheet" href="portal.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
 
@@ -36,15 +37,21 @@
 
         <div class="form-group">
           <label class="form-label">From</label>
-          <div class="input-with-btn">
-            <input type="text" class="form-control" id="plannerFrom" placeholder="Your starting point" />
-            <button class="gps-btn" id="plannerGpsBtn" title="Use my GPS location" onclick="getGPSLocation('planner')">📍</button>
+          <div class="autocomplete-wrap">
+            <div class="input-with-btn">
+              <input type="text" class="form-control" id="plannerFrom" placeholder="Your starting point" autocomplete="off" />
+              <button class="gps-btn" id="plannerGpsBtn" title="Use my GPS location" onclick="getGPSLocation('planner')">📍</button>
+            </div>
+            <div class="autocomplete-dropdown" id="plannerFromDropdown"></div>
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">To (Destination)</label>
-          <input type="text" class="form-control" id="plannerTo" placeholder="Where are you going?" />
+          <div class="autocomplete-wrap">
+            <input type="text" class="form-control" id="plannerTo" placeholder="Where are you going?" autocomplete="off" />
+            <div class="autocomplete-dropdown" id="plannerToDropdown"></div>
+          </div>
         </div>
 
         <div class="row-2">
@@ -118,7 +125,10 @@
 
         <div class="form-group">
           <label class="form-label">To (Destination)</label>
-          <input type="text" class="form-control" id="trackTo" placeholder="Where are you going?" />
+          <div class="autocomplete-wrap">
+            <input type="text" class="form-control" id="trackTo" placeholder="Where are you going?" autocomplete="off" />
+            <div class="autocomplete-dropdown" id="trackToDropdown"></div>
+          </div>
         </div>
 
         <div class="priority-section">
@@ -170,27 +180,35 @@
 
   <!-- ===== MAIN CONTENT ===== -->
   <main class="main-content">
-    <div class="results-header">
-      <div>
-        <span class="results-title">Parking Places Available</span>
-        <span class="results-count" id="resultsCount">0 results</span>
+
+    <!-- MAP -->
+    <div id="map"></div>
+
+    <!-- RESULTS PANEL -->
+    <div class="results-panel">
+      <div class="results-header">
+        <div>
+          <span class="results-title">Parking Places Available</span>
+          <span class="results-count" id="resultsCount">0 results</span>
+        </div>
+        <div class="filter-chips">
+          <button class="chip active" data-filter="all" onclick="applyFilter('all', this)">All</button>
+          <button class="chip" data-filter="cheapest" onclick="applyFilter('cheapest', this)">💰 Cheapest</button>
+          <button class="chip" data-filter="nearest" onclick="applyFilter('nearest', this)">📍 Nearest</button>
+          <button class="chip" data-filter="private" onclick="applyFilter('private', this)">🔒 Private</button>
+          <button class="chip" data-filter="public" onclick="applyFilter('public', this)">🟢 Public</button>
+        </div>
       </div>
-      <div class="filter-chips">
-        <button class="chip active" data-filter="all" onclick="applyFilter('all', this)">All</button>
-        <button class="chip" data-filter="cheapest" onclick="applyFilter('cheapest', this)">💰 Cheapest</button>
-        <button class="chip" data-filter="nearest" onclick="applyFilter('nearest', this)">📍 Nearest</button>
-        <button class="chip" data-filter="private" onclick="applyFilter('private', this)">🔒 Private</button>
-        <button class="chip" data-filter="public" onclick="applyFilter('public', this)">🟢 Public</button>
+
+      <div class="results-body" id="resultsBody">
+        <div class="empty-state">
+          <span class="empty-icon">🅿️</span>
+          <h3>Search for Parking</h3>
+          <p>Enter your destination and search to see available parking spots near you.</p>
+        </div>
       </div>
     </div>
 
-    <div class="results-body" id="resultsBody">
-      <div class="empty-state">
-        <span class="empty-icon">🅿️</span>
-        <h3>Search for Parking</h3>
-        <p>Enter your destination and search to see available parking spots near you.</p>
-      </div>
-    </div>
   </main>
 
 </div>
@@ -217,6 +235,7 @@
 <!-- TOAST CONTAINER -->
 <div class="toast-container" id="toastContainer"></div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="portal.js"></script>
 </body>
 </html>

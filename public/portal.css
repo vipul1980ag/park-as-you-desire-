@@ -938,12 +938,85 @@ footer span { color: var(--accent); }
 }
 
 /* ============================================================
+   MAP
+   ============================================================ */
+#map {
+  height: 45%;
+  min-height: 260px;
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.results-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ============================================================
+   AUTOCOMPLETE
+   ============================================================ */
+.autocomplete-wrap { position: relative; }
+
+.autocomplete-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1.5px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 200;
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+}
+.autocomplete-dropdown.open { display: block; }
+
+.autocomplete-item {
+  padding: 9px 12px;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.4;
+  transition: background var(--transition);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover,
+.autocomplete-item:focus {
+  background: var(--light-bg);
+  color: var(--primary);
+  outline: none;
+}
+
+/* ============================================================
+   MODAL MINI-MAP
+   ============================================================ */
+.modal-map {
+  height: 200px;
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 20px;
+  border: 1.5px solid var(--border);
+}
+
+/* ============================================================
    RESPONSIVE
    ============================================================ */
 @media (max-width: 768px) {
   .portal-layout { flex-direction: column; height: auto; }
   .sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); max-height: 55vh; overflow-y: auto; }
   .main-content { height: calc(100vh - var(--navbar-h) - 55vh); }
+  #map { height: 220px; min-height: 220px; }
+  .results-panel { min-height: 180px; }
   .parking-grid { grid-template-columns: 1fr; }
   .owner-grid { grid-template-columns: 1fr; }
   .hero { padding: 60px 16px 50px; }

@@ -961,16 +961,13 @@ footer span { color: var(--accent); }
 .autocomplete-wrap { position: relative; }
 
 .autocomplete-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: absolute; /* positioned by JS via getBoundingClientRect */
   background: #fff;
   border: 1.5px solid var(--border);
   border-top: none;
   border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: 200;
+  z-index: 9999;
   max-height: 220px;
   overflow-y: auto;
   display: none;

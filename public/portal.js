@@ -306,12 +306,24 @@ function setupAutocomplete(inputId, dropdownId, onSelect) {
   const dropdown = document.getElementById(dropdownId);
   if (!input || !dropdown) return;
 
+  // Move dropdown to body so sidebar overflow:auto doesn't clip it
+  document.body.appendChild(dropdown);
+
   let timer = null;
+
+  function reposition() {
+    const wrap = input.closest('.autocomplete-wrap') || input;
+    const rect = wrap.getBoundingClientRect();
+    dropdown.style.top   = `${rect.bottom + window.scrollY}px`;
+    dropdown.style.left  = `${rect.left + window.scrollX}px`;
+    dropdown.style.width = `${rect.width}px`;
+  }
 
   input.addEventListener('input', () => {
     clearTimeout(timer);
     const q = input.value.trim();
     if (q.length < 3) { closeDropdown(dropdown); return; }
+    reposition();
     timer = setTimeout(() => nominatimSearch(q, dropdown, onSelect, input), 500);
   });
 
@@ -328,6 +340,8 @@ function setupAutocomplete(inputId, dropdownId, onSelect) {
       closeDropdown(dropdown);
     }
   });
+
+  window.addEventListener('resize', () => { if (dropdown.classList.contains('open')) reposition(); });
 }
 
 function closeDropdown(dropdown) {

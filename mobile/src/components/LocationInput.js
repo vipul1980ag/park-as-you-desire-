@@ -10,31 +10,17 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { searchPhoton } from '../services/api';
 
-const COLORS = {
-  primary: '#1a3c5e',
-  accent: '#f0a500',
-  background: '#f5f5f5',
-  white: '#ffffff',
-  textDark: '#333333',
-  textSecondary: '#888888',
-  border: '#d0d8e0',
+const T = {
+  surface: '#142033',
+  surface2: '#1c2e44',
+  border: '#243350',
+  gold: '#f0a500',
+  teal: '#0ab5a0',
+  text: '#e2eaf4',
+  textMuted: '#6e92b5',
+  bg: '#0d1b2a',
 };
 
-/**
- * LocationInput — styled text input with optional GPS button and Photon autocomplete.
- *
- * Props:
- *   label            {string}  - Label above the input
- *   value            {string}  - Current text value
- *   onChangeText     {func}    - Called when text changes
- *   onLocationSelect {func}    - Called with {label, lat, lng} when a suggestion is picked
- *   placeholder      {string}  - Placeholder text
- *   icon             {string}  - Ionicons name for left icon
- *   showGps          {bool}    - Show GPS/locate button (default false)
- *   onGpsPress       {func}    - Called when GPS button pressed
- *   gpsLoading       {bool}    - Show spinner in GPS button
- *   editable         {bool}    - Whether input is editable (default true)
- */
 export default function LocationInput({
   label,
   value,
@@ -54,14 +40,8 @@ export default function LocationInput({
 
   const handleChangeText = useCallback((text) => {
     onChangeText && onChangeText(text);
-
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (!text || text.trim().length < 2) {
-      setSuggestions([]);
-      return;
-    }
-
+    if (!text || text.trim().length < 2) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
       setLoadingSugg(true);
       try {
@@ -91,14 +71,16 @@ export default function LocationInput({
       {label ? <Text style={styles.label}>{label}</Text> : null}
 
       <View style={[styles.inputRow, !editable && styles.disabledRow]}>
-        <Ionicons name={icon} size={18} color={COLORS.primary} style={styles.leftIcon} />
+        <View style={styles.iconWrap}>
+          <Ionicons name={icon} size={16} color={T.teal} />
+        </View>
 
         <TextInput
           style={styles.input}
           value={value}
           onChangeText={handleChangeText}
           placeholder={placeholder}
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={T.textMuted}
           editable={editable}
           returnKeyType="search"
           autoCorrect={false}
@@ -106,7 +88,7 @@ export default function LocationInput({
         />
 
         {loadingSugg && (
-          <ActivityIndicator size="small" color={COLORS.primary} style={styles.loader} />
+          <ActivityIndicator size="small" color={T.gold} style={styles.loader} />
         )}
 
         {showGps && (
@@ -116,17 +98,16 @@ export default function LocationInput({
             disabled={gpsLoading}
             activeOpacity={0.7}
           >
-            {gpsLoading ? (
-              <ActivityIndicator size="small" color={COLORS.white} />
-            ) : (
-              <Ionicons name="navigate" size={16} color={COLORS.white} />
-            )}
+            {gpsLoading
+              ? <ActivityIndicator size="small" color={T.bg} />
+              : <Ionicons name="navigate" size={15} color={T.bg} />
+            }
           </TouchableOpacity>
         )}
 
         {!showGps && !loadingSugg && value && value.length > 0 && editable && (
           <TouchableOpacity onPress={handleClear} style={styles.clearBtn} activeOpacity={0.7}>
-            <Ionicons name="close-circle" size={18} color={COLORS.textSecondary} />
+            <Ionicons name="close-circle" size={17} color={T.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -136,11 +117,11 @@ export default function LocationInput({
           {suggestions.map((s, i) => (
             <TouchableOpacity
               key={i}
-              style={[styles.suggestion, i < suggestions.length - 1 && styles.suggestionBorder]}
+              style={[styles.suggestion, i < suggestions.length - 1 && styles.suggBorder]}
               onPress={() => handleSuggestionPress(s)}
               activeOpacity={0.7}
             >
-              <Ionicons name="location-outline" size={13} color={COLORS.primary} style={styles.suggIcon} />
+              <Ionicons name="location-outline" size={13} color={T.teal} style={{ marginRight: 8 }} />
               <Text style={styles.suggText} numberOfLines={2}>{s.label}</Text>
             </TouchableOpacity>
           ))}
@@ -151,89 +132,44 @@ export default function LocationInput({
 }
 
 const styles = StyleSheet.create({
-  wrapper: {
-    marginBottom: 12,
-  },
+  wrapper: { marginBottom: 14 },
   label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.primary,
-    marginBottom: 5,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 12, fontWeight: '700', color: T.textMuted,
+    marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8,
   },
   inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    minHeight: 46,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.surface2, borderWidth: 1.5, borderColor: T.border,
+    borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, minHeight: 48,
   },
-  disabledRow: {
-    backgroundColor: '#f0f0f0',
-    borderColor: '#e0e0e0',
+  disabledRow: { opacity: 0.5 },
+  iconWrap: {
+    width: 30, height: 30, borderRadius: 8,
+    backgroundColor: 'rgba(10,181,160,0.12)',
+    alignItems: 'center', justifyContent: 'center', marginRight: 8,
   },
-  leftIcon: {
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.textDark,
-    paddingVertical: 6,
-  },
-  loader: {
-    marginLeft: 4,
-  },
+  input: { flex: 1, fontSize: 14, color: T.text, paddingVertical: 6 },
+  loader: { marginLeft: 4 },
   gpsBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    padding: 7,
-    marginLeft: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 34,
-    height: 34,
+    backgroundColor: T.gold, borderRadius: 9,
+    padding: 8, marginLeft: 6,
+    alignItems: 'center', justifyContent: 'center',
+    width: 34, height: 34,
   },
-  clearBtn: {
-    paddingLeft: 4,
-  },
+  clearBtn: { paddingLeft: 4 },
   dropdown: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    marginTop: 2,
-    overflow: 'hidden',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    backgroundColor: T.surface2,
+    borderWidth: 1, borderColor: T.border,
+    borderRadius: 12, marginTop: 4, overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 8,
     zIndex: 999,
   },
   suggestion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 12,
   },
-  suggestionBorder: {
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
-  },
-  suggIcon: {
-    marginRight: 8,
-    flexShrink: 0,
-  },
-  suggText: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.textDark,
-    lineHeight: 18,
-  },
+  suggBorder: { borderBottomWidth: 1, borderBottomColor: T.border },
+  suggText: { flex: 1, fontSize: 13, color: T.text, lineHeight: 18 },
 });

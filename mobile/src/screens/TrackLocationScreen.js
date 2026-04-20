@@ -20,17 +20,17 @@ import LeafletMapView from '../components/LeafletMapView';
 import { fetchOSMParkings, fetchOSMRoute, formatRate } from '../services/api';
 
 const COLORS = {
-  primary: '#1a3c5e',
+  primary: '#142033',
   accent: '#f0a500',
-  background: '#f5f5f5',
-  white: '#ffffff',
-  textDark: '#333333',
-  textSecondary: '#666666',
-  selected: '#e8f0fe',
-  border: '#d0d8e0',
-  success: '#2e7d32',
-  error: '#c62828',
-  live: '#e53935',
+  background: '#0d1b2a',
+  white: '#e2eaf4',
+  textDark: '#e2eaf4',
+  textSecondary: '#6e92b5',
+  selected: '#1c2e44',
+  border: '#243350',
+  success: '#0ab5a0',
+  error: '#ff6b6b',
+  live: '#ff6b6b',
 };
 
 const PRIORITY_OPTIONS = [

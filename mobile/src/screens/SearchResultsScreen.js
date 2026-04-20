@@ -16,32 +16,32 @@ import ParkingCard from '../components/ParkingCard';
 import LeafletMapView from '../components/LeafletMapView';
 import { getParkings, fetchOSMParkings } from '../services/api';
 
-const COLORS = {
-  primary: '#1a3c5e',
-  accent: '#f0a500',
-  background: '#f5f5f5',
+const T = {
+  bg: '#0d1b2a',
+  surface: '#142033',
+  surface2: '#1c2e44',
+  border: '#243350',
+  gold: '#f0a500',
+  goldLight: 'rgba(240,165,0,0.15)',
+  teal: '#0ab5a0',
+  text: '#e2eaf4',
+  textMuted: '#6e92b5',
   white: '#ffffff',
-  textDark: '#333333',
-  textSecondary: '#666666',
-  border: '#d0d8e0',
+  error: '#ff6b6b',
 };
 
 const FILTER_CHIPS = [
-  { id: 'all', label: 'All' },
-  { id: 'cost', label: '💰 Cheapest' },
-  { id: 'distance', label: '📍 Nearest' },
-  { id: 'private', label: '🔒 Private' },
-  { id: 'public', label: '🟢 Public' },
+  { id: 'all', label: 'All', icon: 'grid-outline' },
+  { id: 'cost', label: 'Cheapest', icon: 'cash-outline' },
+  { id: 'distance', label: 'Nearest', icon: 'location-outline' },
+  { id: 'private', label: 'Private', icon: 'lock-closed-outline' },
+  { id: 'public', label: 'Public', icon: 'earth-outline' },
 ];
 
 export default function SearchResultsScreen({ navigation, route }) {
   const {
-    from = '',
-    to = '',
-    lat,
-    lng,
+    from = '', to = '', lat, lng,
     sortBy: initialSortBy = 'distance',
-    priority = 'distance',
   } = route.params || {};
 
   const [parkings, setParkings] = useState([]);
@@ -51,169 +51,138 @@ export default function SearchResultsScreen({ navigation, route }) {
   const [showMap, setShowMap] = useState(true);
   const mapRef = useRef(null);
 
-  const fetchParkings = useCallback(
-    async (filter, search) => {
-      setLoading(true);
-      try {
-        let data = [];
-        if (lat && lng) {
-          // Try real OSM data first
-          const radius = 2000;
-          const typeFilter = filter === 'private' ? 'private' : filter === 'public' ? 'surface' : '';
-          data = await fetchOSMParkings(lat, lng, radius, typeFilter);
-        }
-        if (!data || data.length === 0) {
-          // Fall back to server / mock data
-          const params = {
-            sortBy: filter === 'all' ? undefined : filter,
-            lat,
-            lng,
-            search: search || undefined,
-          };
-          data = await getParkings(params);
-        }
-
-        // Apply local filter
-        if (filter === 'private') data = data.filter((p) => p.isPrivate);
-        else if (filter === 'public') data = data.filter((p) => !p.isPrivate);
-
-        if (search) {
-          const term = search.toLowerCase();
-          data = data.filter(
-            (p) => p.name.toLowerCase().includes(term) || p.address.toLowerCase().includes(term)
-          );
-        }
-
-        // Sort
-        if (filter === 'cost') data.sort((a, b) => a.costPerHour - b.costPerHour);
-        else if (filter === 'distance') data.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
-
-        setParkings(data);
-      } catch (err) {
-        Alert.alert('Error', 'Failed to load parking results.');
-        setParkings([]);
-      } finally {
-        setLoading(false);
+  const fetchParkings = useCallback(async (filter, search) => {
+    setLoading(true);
+    try {
+      let data = [];
+      if (lat && lng) {
+        const typeFilter = filter === 'private' ? 'private' : filter === 'public' ? 'surface' : '';
+        data = await fetchOSMParkings(lat, lng, 2000, typeFilter);
       }
-    },
-    [lat, lng]
-  );
+      if (!data || data.length === 0) {
+        data = await getParkings({ sortBy: filter === 'all' ? undefined : filter, lat, lng, search: search || undefined });
+      }
+      if (filter === 'private') data = data.filter(p => p.isPrivate);
+      else if (filter === 'public') data = data.filter(p => !p.isPrivate);
+      if (search) {
+        const term = search.toLowerCase();
+        data = data.filter(p => p.name.toLowerCase().includes(term) || p.address.toLowerCase().includes(term));
+      }
+      if (filter === 'cost') data.sort((a, b) => a.costPerHour - b.costPerHour);
+      else if (filter === 'distance') data.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
+      setParkings(data);
+    } catch {
+      Alert.alert('Error', 'Failed to load parking results.');
+      setParkings([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [lat, lng]);
 
-  useEffect(() => {
-    fetchParkings(activeFilter, searchQuery);
-  }, [activeFilter]);
+  useEffect(() => { fetchParkings(activeFilter, searchQuery); }, [activeFilter]);
 
-  const handleSearch = () => fetchParkings(activeFilter, searchQuery);
+  const handleCardPress = (parking) => navigation.navigate('ParkingDetail', { parkingId: parking.id, parking, lat, lng });
+  const handleMapMarkerPress = (index) => { if (parkings[index]) handleCardPress(parkings[index]); };
 
-  const handleCardPress = (parking) => {
-    navigation.navigate('ParkingDetail', { parkingId: parking.id, parking, lat, lng });
-  };
-
-  const handleMapMarkerPress = (index) => {
-    if (parkings[index]) handleCardPress(parkings[index]);
-  };
-
-  const mapMarkers = parkings.map((p) => ({
-    id: p.id,
-    lat: p.lat,
-    lng: p.lng,
-    type: p.type,
-    name: p.name,
-    address: p.address,
+  const mapMarkers = parkings.map(p => ({
+    id: p.id, lat: p.lat, lng: p.lng,
+    type: p.type, name: p.name, address: p.address,
     rate: p.costPerHour > 0 ? `£${p.costPerHour.toFixed(2)}/hr` : 'Free',
   }));
 
   const renderHeader = () => (
     <View>
       {/* Route summary */}
-      <View style={styles.routeSummary}>
+      <View style={styles.routeCard}>
         <View style={styles.routeRow}>
-          <Ionicons name="radio-button-on" size={14} color={COLORS.accent} />
+          <View style={[styles.routeDot, { backgroundColor: T.teal }]} />
           <Text style={styles.routeText} numberOfLines={1}>{from || 'Your location'}</Text>
         </View>
-        <View style={styles.routeLine} />
+        <View style={styles.routeConnector}>
+          <View style={styles.routeLine} />
+        </View>
         <View style={styles.routeRow}>
-          <Ionicons name="location" size={14} color={COLORS.primary} />
+          <View style={[styles.routeDot, { backgroundColor: T.gold }]} />
           <Text style={styles.routeText} numberOfLines={1}>{to || 'Destination'}</Text>
         </View>
       </View>
 
       {/* Search box */}
       <View style={styles.searchBox}>
-        <Ionicons name="search" size={16} color={COLORS.textSecondary} />
+        <Ionicons name="search" size={16} color={T.textMuted} />
         <TextInput
           style={styles.searchInput}
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder="Search parking name or area..."
-          placeholderTextColor={COLORS.textSecondary}
+          placeholderTextColor={T.textMuted}
           returnKeyType="search"
-          onSubmitEditing={handleSearch}
+          onSubmitEditing={() => fetchParkings(activeFilter, searchQuery)}
         />
         {searchQuery.length > 0 && (
           <TouchableOpacity onPress={() => { setSearchQuery(''); fetchParkings(activeFilter, ''); }}>
-            <Ionicons name="close-circle" size={16} color={COLORS.textSecondary} />
+            <Ionicons name="close-circle" size={16} color={T.textMuted} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Filter chips */}
       <View style={styles.filterRow}>
-        {FILTER_CHIPS.map((chip) => (
+        {FILTER_CHIPS.map(chip => (
           <TouchableOpacity
             key={chip.id}
-            style={[styles.filterChip, activeFilter === chip.id && styles.filterChipActive]}
+            style={[styles.chip, activeFilter === chip.id && styles.chipActive]}
             onPress={() => setActiveFilter(chip.id)}
             activeOpacity={0.75}
           >
-            <Text style={[styles.filterChipText, activeFilter === chip.id && styles.filterChipTextActive]}>
+            <Ionicons
+              name={chip.icon}
+              size={13}
+              color={activeFilter === chip.id ? T.bg : T.textMuted}
+            />
+            <Text style={[styles.chipText, activeFilter === chip.id && styles.chipTextActive]}>
               {chip.label}
             </Text>
           </TouchableOpacity>
         ))}
       </View>
 
-      {/* Result count + map toggle */}
-      <View style={styles.resultCount}>
-        <Text style={styles.resultCountText}>
-          {loading ? 'Searching...' : `${parkings.length} spot${parkings.length !== 1 ? 's' : ''} found`}
+      {/* Count + map toggle */}
+      <View style={styles.countRow}>
+        <Text style={styles.countText}>
+          {loading ? 'Searching…' : `${parkings.length} spot${parkings.length !== 1 ? 's' : ''} found`}
         </Text>
-        <TouchableOpacity onPress={() => setShowMap((v) => !v)} style={styles.mapToggleBtn}>
-          <Ionicons name={showMap ? 'list' : 'map'} size={14} color={COLORS.primary} />
-          <Text style={styles.mapToggleText}>{showMap ? 'List' : 'Map'}</Text>
+        <TouchableOpacity onPress={() => setShowMap(v => !v)} style={styles.toggleBtn}>
+          <Ionicons name={showMap ? 'list' : 'map'} size={14} color={T.gold} />
+          <Text style={styles.toggleText}>{showMap ? 'List view' : 'Map view'}</Text>
         </TouchableOpacity>
       </View>
     </View>
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={22} color={T.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Parking Near You</Text>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* MAP */}
       {showMap && lat && lng && (
         <View style={styles.mapContainer}>
           <LeafletMapView
             ref={mapRef}
-            centerLat={lat}
-            centerLng={lng}
-            zoom={14}
-            markers={mapMarkers}
-            userLat={lat}
-            userLng={lng}
+            centerLat={lat} centerLng={lng} zoom={14}
+            markers={mapMarkers} userLat={lat} userLng={lng}
             onMarkerPress={handleMapMarkerPress}
           />
           {loading && (
             <View style={styles.mapLoading}>
-              <ActivityIndicator color={COLORS.primary} />
+              <ActivityIndicator color={T.gold} />
             </View>
           )}
         </View>
@@ -221,23 +190,23 @@ export default function SearchResultsScreen({ navigation, route }) {
 
       {loading && !showMap ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.loadingText}>Finding best parking spots...</Text>
+          <ActivityIndicator size="large" color={T.gold} />
+          <Text style={styles.loadingText}>Finding best parking spots…</Text>
         </View>
       ) : (
         <FlatList
           data={parkings}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <ParkingCard parking={item} onPress={handleCardPress} />
-          )}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <ParkingCard parking={item} onPress={handleCardPress} />}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={
             !loading ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="car-outline" size={60} color={COLORS.border} />
+                <View style={styles.emptyIconWrap}>
+                  <Ionicons name="car-outline" size={48} color={T.textMuted} />
+                </View>
                 <Text style={styles.emptyTitle}>No parking found</Text>
-                <Text style={styles.emptyText}>Try adjusting your filters or search in a different area.</Text>
+                <Text style={styles.emptyText}>Try adjusting your filters or searching a different area.</Text>
                 <TouchableOpacity
                   style={styles.resetBtn}
                   onPress={() => { setActiveFilter('all'); setSearchQuery(''); fetchParkings('all', ''); }}
@@ -247,7 +216,7 @@ export default function SearchResultsScreen({ navigation, route }) {
               </View>
             ) : null
           }
-          contentContainerStyle={styles.list}
+          contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -256,68 +225,81 @@ export default function SearchResultsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.background },
+  safe: { flex: 1, backgroundColor: T.bg },
   header: {
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    backgroundColor: T.surface, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: T.border,
   },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 16, fontWeight: '700', color: COLORS.white, letterSpacing: 0.3 },
+  backBtn: {
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: T.surface2, alignItems: 'center', justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: T.text },
+
   mapContainer: {
-    height: 220,
-    position: 'relative',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    height: 230, position: 'relative',
+    borderBottomWidth: 1, borderBottomColor: T.border,
   },
   mapLoading: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(13,27,42,0.5)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  loadingText: { fontSize: 14, color: COLORS.textSecondary },
-  list: { paddingBottom: 20 },
-  routeSummary: {
-    backgroundColor: COLORS.white, margin: 16, borderRadius: 12, padding: 14,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1,
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14 },
+  loadingText: { fontSize: 14, color: T.textMuted },
+
+  routeCard: {
+    backgroundColor: T.surface, margin: 14, borderRadius: 16, padding: 16,
+    borderWidth: 1, borderColor: T.border,
   },
-  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  routeText: { flex: 1, fontSize: 13, color: COLORS.textDark, fontWeight: '500' },
-  routeLine: { width: 1, height: 12, backgroundColor: COLORS.border, marginLeft: 7, marginVertical: 3 },
+  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  routeDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  routeText: { flex: 1, fontSize: 13, color: T.text, fontWeight: '600' },
+  routeConnector: { paddingLeft: 4, paddingVertical: 4 },
+  routeLine: { width: 2, height: 12, backgroundColor: T.border, marginLeft: 3 },
+
   searchBox: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white,
-    marginHorizontal: 16, marginBottom: 10, borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 8, gap: 8,
-    borderWidth: 1, borderColor: COLORS.border,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.surface, marginHorizontal: 14, marginBottom: 10,
+    borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
+    gap: 10, borderWidth: 1, borderColor: T.border,
   },
-  searchInput: { flex: 1, fontSize: 14, color: COLORS.textDark, paddingVertical: 2 },
-  filterRow: { flexDirection: 'row', paddingHorizontal: 16, marginBottom: 8, gap: 8, flexWrap: 'wrap' },
-  filterChip: {
-    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20,
-    borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.white,
+  searchInput: { flex: 1, fontSize: 14, color: T.text, paddingVertical: 2 },
+
+  filterRow: { flexDirection: 'row', paddingHorizontal: 14, marginBottom: 10, gap: 8, flexWrap: 'wrap' },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1.5, borderColor: T.border, backgroundColor: T.surface,
   },
-  filterChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  filterChipText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
-  filterChipTextActive: { color: COLORS.white },
-  resultCount: {
+  chipActive: { backgroundColor: T.gold, borderColor: T.gold },
+  chipText: { fontSize: 12, fontWeight: '600', color: T.textMuted },
+  chipTextActive: { color: T.bg },
+
+  countRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, marginBottom: 8,
+    paddingHorizontal: 14, marginBottom: 8,
   },
-  resultCountText: { fontSize: 13, color: COLORS.textSecondary, fontWeight: '500' },
-  mapToggleBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
-    backgroundColor: COLORS.white, borderWidth: 1, borderColor: COLORS.border,
+  countText: { fontSize: 13, color: T.textMuted, fontWeight: '500' },
+  toggleBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10,
+    backgroundColor: T.surface, borderWidth: 1, borderColor: T.border,
   },
-  mapToggleText: { fontSize: 12, color: COLORS.primary, fontWeight: '600' },
-  emptyContainer: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 40, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: COLORS.textDark, marginTop: 8 },
-  emptyText: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
-  resetBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: COLORS.primary, borderRadius: 20 },
-  resetBtnText: { color: COLORS.white, fontWeight: '600', fontSize: 13 },
+  toggleText: { fontSize: 12, color: T.gold, fontWeight: '700' },
+
+  emptyContainer: { alignItems: 'center', paddingTop: 50, paddingHorizontal: 40, gap: 12 },
+  emptyIconWrap: {
+    width: 80, height: 80, borderRadius: 24,
+    backgroundColor: T.surface, borderWidth: 1, borderColor: T.border,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  emptyTitle: { fontSize: 18, fontWeight: '800', color: T.text },
+  emptyText: { fontSize: 13, color: T.textMuted, textAlign: 'center', lineHeight: 20 },
+  resetBtn: {
+    marginTop: 8, paddingHorizontal: 28, paddingVertical: 12,
+    backgroundColor: T.gold, borderRadius: 16,
+  },
+  resetBtnText: { color: T.bg, fontWeight: '800', fontSize: 14 },
 });

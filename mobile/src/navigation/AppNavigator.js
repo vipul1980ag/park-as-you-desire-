@@ -14,6 +14,9 @@ import ParkingDetailScreen from '../screens/ParkingDetailScreen';
 import OwnerHomeScreen from '../screens/owner/OwnerHomeScreen';
 import ListParkingScreen from '../screens/owner/ListParkingScreen';
 
+// AI
+import ParkBotScreen from '../screens/ParkBotScreen';
+
 const Stack = createStackNavigator();
 
 // All screens in a single flat navigator — no header shown (each screen manages its own)
@@ -24,7 +27,7 @@ export default function AppNavigator() {
         initialRouteName="Home"
         screenOptions={{
           headerShown: false,
-          cardStyle: { backgroundColor: '#f5f5f5' },
+          cardStyle: { backgroundColor: '#0d1b2a' },
           // Smooth slide animation
           gestureEnabled: true,
           gestureDirection: 'horizontal',
@@ -41,6 +44,9 @@ export default function AppNavigator() {
         {/* Owner Flow */}
         <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} />
         <Stack.Screen name="ListParking" component={ListParkingScreen} />
+
+        {/* AI */}
+        <Stack.Screen name="ParkBot" component={ParkBotScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

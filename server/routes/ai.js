@@ -4,6 +4,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 
 const client = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+// Prompt caching: keep system stable (no volatile content) so the cache prefix is always valid.
 const SYSTEM_PROMPT = `You are ParkBot, an expert AI assistant for the "Park As You Desire" parking app.
 You help drivers find the best parking spots, answer questions about parking, explain costs, and give smart recommendations.
 
@@ -16,17 +17,48 @@ You know about these parking types:
 - Driveway / Residential: private home driveways listed by owners
 - Underground: below-ground car park, usually the most secure
 
-When a user asks to find parking, extract the destination and any preferences (type, budget, time) and return a JSON action block like this so the app can auto-search:
-<action>{"type":"search","destination":"Canary Wharf, London","parkingType":"","radius":2000,"priority":"distance"}</action>
+When the user asks to find parking anywhere, call the search_parking tool. Extract the destination and any preferences from their message. Do NOT describe a search action in text — call the tool directly.
 
 You can also:
-- Recommend the cheapest, nearest, or safest option from results the user pastes
+- Recommend the cheapest, nearest, or safest option from results the user shares
 - Estimate parking costs for a given duration
 - Explain parking regulations or tips for a city
 - Compare parking options
 - Help with navigation questions
 
-Be concise, friendly, and practical. Use British English. If you suggest a search action, include it at the end of your reply.`;
+Be concise, friendly, and practical. Use British English.`;
+
+// Tool: triggers a parking search in the mobile app
+const TOOLS = [
+  {
+    name: 'search_parking',
+    description: 'Search for parking spots near a destination. Call this whenever the user wants to find parking somewhere.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        destination: {
+          type: 'string',
+          description: 'The destination address or place name to find parking near, e.g. "Canary Wharf, London"',
+        },
+        parkingType: {
+          type: 'string',
+          enum: ['surface', 'multi-storey', 'underground', 'street_side', ''],
+          description: 'Preferred parking type. Use empty string for any type.',
+        },
+        radius: {
+          type: 'number',
+          description: 'Search radius in metres (default 1000).',
+        },
+        priority: {
+          type: 'string',
+          enum: ['distance', 'cost', 'availability'],
+          description: 'What to prioritise in results.',
+        },
+      },
+      required: ['destination'],
+    },
+  },
+];
 
 // POST /api/ai/chat
 // Body: { messages: [{role, content}], context?: {parkings, userLat, userLng, destLat, destLng} }
@@ -37,7 +69,7 @@ router.post('/chat', async (req, res) => {
     return res.status(400).json({ success: false, message: 'messages array required' });
   }
 
-  // Build context string to prepend to the latest user message if context provided
+  // Inject context as a note on the last user message (after the cached prefix boundary)
   let contextNote = '';
   if (context) {
     if (context.userLat && context.userLng) {
@@ -48,13 +80,12 @@ router.post('/chat', async (req, res) => {
     }
     if (context.parkings && context.parkings.length > 0) {
       const top5 = context.parkings.slice(0, 5).map(p =>
-        `• ${p.name} — ${p.type || p.typeName || ''}, £${p.costPerHour || 0}/hr, ${p.availableSpots ?? '?'} spots, ${p.distance ? (p.distance < 1 ? Math.round(p.distance * 1000) + 'm' : p.distance.toFixed(1) + 'km') : '?'} away`
+        `• ${p.name} — ${p.type || ''}, £${p.costPerHour || 0}/hr, ${p.availableSpots ?? '?'} spots, ${p.distance ? (p.distance < 1 ? Math.round(p.distance * 1000) + 'm' : p.distance.toFixed(1) + 'km') : '?'} away`
       ).join('\n');
       contextNote += `\n[Current search results (top 5):\n${top5}]`;
     }
   }
 
-  // Inject context into the last user message
   const apiMessages = messages.map((m, i) => {
     if (i === messages.length - 1 && m.role === 'user' && contextNote) {
       return { role: 'user', content: contextNote + '\n' + m.content };
@@ -62,7 +93,7 @@ router.post('/chat', async (req, res) => {
     return { role: m.role, content: m.content };
   });
 
-  // Set up SSE streaming
+  // Set up SSE
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -72,10 +103,21 @@ router.post('/chat', async (req, res) => {
     const stream = client.messages.stream({
       model: 'claude-opus-4-6',
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      // Prompt caching: stable system prompt with cache_control so repeated calls
+      // read from cache instead of re-processing the full system text each time.
+      system: [
+        {
+          type: 'text',
+          text: SYSTEM_PROMPT,
+          cache_control: { type: 'ephemeral' },
+        },
+      ],
+      tools: TOOLS,
+      tool_choice: { type: 'auto' },
       messages: apiMessages,
     });
 
+    // Stream text deltas as they arrive
     stream.on('text', (delta) => {
       res.write(`data: ${JSON.stringify({ type: 'delta', text: delta })}\n\n`);
     });
@@ -86,7 +128,12 @@ router.post('/chat', async (req, res) => {
       res.end();
     });
 
-    stream.on('finalMessage', () => {
+    // On completion, extract any tool calls and emit them before closing
+    stream.on('finalMessage', (message) => {
+      const toolCalls = message.content.filter(b => b.type === 'tool_use');
+      if (toolCalls.length > 0) {
+        res.write(`data: ${JSON.stringify({ type: 'tool_calls', calls: toolCalls })}\n\n`);
+      }
       res.write(`data: ${JSON.stringify({ type: 'done' })}\n\n`);
       res.end();
     });

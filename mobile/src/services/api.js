@@ -1,6 +1,5 @@
-// Base URL — change to your machine's LAN IP when testing on a physical device
-// e.g., 'http://192.168.1.10:3002/api'
-const BASE_URL = 'http://localhost:3002/api';
+// Base URL — LAN IP for physical device testing
+const BASE_URL = 'http://192.168.178.60:3002/api';
 
 // Haversine formula for local distance calculation (fallback)
 function haversineDistance(lat1, lng1, lat2, lng2) {
@@ -442,6 +441,51 @@ export const getParkingById = async (id, params = {}) => {
     return result;
   }
 };
+
+// ---------- AI Chat ----------
+
+/**
+ * Stream a ParkBot chat turn via SSE.
+ * Uses XHR (supported in React Native) to read the chunked SSE response.
+ *
+ * @param {Array} messages   - [{role, content}] conversation history
+ * @param {object} context   - optional { userLat, userLng, destLat, destLng, parkings }
+ * @param {object} handlers  - { onDelta, onToolCalls, onDone, onError }
+ * @returns {Function} cancel — call to abort the in-flight request
+ */
+export function chatWithAI(messages, context, { onDelta, onToolCalls, onDone, onError } = {}) {
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `${BASE_URL}/ai/chat`, true);
+  xhr.setRequestHeader('Content-Type', 'application/json');
+
+  let cursor = 0; // tracks how far into responseText we've already parsed
+
+  xhr.onprogress = () => {
+    const chunk = xhr.responseText.substring(cursor);
+    cursor = xhr.responseText.length;
+
+    // Each SSE message is "data: <json>\n\n"
+    const lines = chunk.split('\n');
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      try {
+        const payload = JSON.parse(line.slice(6));
+        if (payload.type === 'delta') onDelta?.(payload.text);
+        else if (payload.type === 'tool_calls') onToolCalls?.(payload.calls);
+        else if (payload.type === 'done') onDone?.();
+        else if (payload.type === 'error') onError?.(payload.message);
+      } catch (_) {}
+    }
+  };
+
+  xhr.onerror = () => onError?.('Network error — check server connection.');
+  xhr.ontimeout = () => onError?.('Request timed out.');
+  xhr.timeout = 60000; // 60s
+
+  xhr.send(JSON.stringify({ messages, context }));
+
+  return () => xhr.abort();
+}
 
 // ---------- Owner APIs ----------
 

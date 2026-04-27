@@ -72,6 +72,21 @@ router.post('/chat', async (req, res) => {
     return res.status(400).json({ success: false, message: 'messages array required' });
   }
 
+  // Cap conversation length to prevent abuse
+  if (messages.length > 40) {
+    return res.status(400).json({ success: false, message: 'Conversation too long. Please start a new session.' });
+  }
+
+  // Validate each message
+  for (const m of messages) {
+    if (!m.role || !['user', 'assistant'].includes(m.role)) {
+      return res.status(400).json({ success: false, message: 'Invalid message role' });
+    }
+    if (typeof m.content !== 'string' || m.content.length > 2000) {
+      return res.status(400).json({ success: false, message: 'Message content too long (max 2000 chars)' });
+    }
+  }
+
   // Inject context as a note on the last user message (after the cached prefix boundary)
   let contextNote = '';
   if (context) {
@@ -127,7 +142,7 @@ router.post('/chat', async (req, res) => {
 
     stream.on('error', (err) => {
       console.error('Claude stream error:', err.message);
-      res.write(`data: ${JSON.stringify({ type: 'error', message: err.message })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI service error. Please try again.' })}\n\n`);
       res.end();
     });
 
@@ -142,7 +157,7 @@ router.post('/chat', async (req, res) => {
     });
   } catch (err) {
     console.error('AI chat error:', err.message);
-    res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI service error: ' + err.message })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI service unavailable. Please try again.' })}\n\n`);
     res.end();
   }
 });

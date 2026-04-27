@@ -9,6 +9,18 @@ const { v4: uuidv4 } = require('uuid');
 
 const DATA_PATH = path.join(__dirname, '../data/parkings.json');
 
+// ── Owner API key auth ────────────────────────────────────────────────────────
+const OWNER_API_KEY = process.env.OWNER_API_KEY;
+
+function requireOwnerAuth(req, res, next) {
+  if (!OWNER_API_KEY) return next(); // skip in dev if key not set
+  const key = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
+  if (!key || key !== OWNER_API_KEY) {
+    return res.status(401).json({ success: false, message: 'Unauthorised' });
+  }
+  next();
+}
+
 function readParkings() {
   const raw = fs.readFileSync(DATA_PATH, 'utf8');
   return JSON.parse(raw);
@@ -22,6 +34,9 @@ function writeParkings(data) {
 function getOwnerId(req) {
   return req.headers['ownerid'] || req.headers['x-owner-id'] || req.query.ownerId || 'demo-owner';
 }
+
+// All owner routes require auth
+router.use(requireOwnerAuth);
 
 // GET /api/owner/parkings — Get all listings by ownerId
 router.get('/parkings', (req, res) => {

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+// Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
+
 // Base URL — LAN IP for physical device testing
 const BASE_URL = 'http://192.168.178.60:3002/api';
 

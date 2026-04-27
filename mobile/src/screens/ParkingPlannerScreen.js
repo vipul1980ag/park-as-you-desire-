@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+// Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
+
 import React, { useState } from 'react';
 import {
   View,

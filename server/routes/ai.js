@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+// Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
+
 const express = require('express');
 const router = express.Router();
 const Anthropic = require('@anthropic-ai/sdk');

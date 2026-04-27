@@ -1,8 +1,15 @@
 <!DOCTYPE html>
+<!--
+  PARKING-IN — Proprietary Software
+  Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+  Unauthorized copying, reproduction, or distribution is strictly prohibited.
+  Contact: vipul.orlando@gmail.com
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex, nofollow" />
 <title>PARKING-IN</title>
 <style>
   :root {
@@ -519,6 +526,18 @@
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── Anti-copy protection ── */
+  body, * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+  input, textarea { -webkit-user-select: text !important; user-select: text !important; }
+
+  /* Copyright watermark */
+  .copyright-bar {
+    text-align: center; padding: 12px 16px;
+    font-size: 11px; color: var(--border);
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.3px;
+  }
 </style>
 </head>
 <body>
@@ -739,6 +758,40 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Copyright footer shown on home page -->
+<div class="copyright-bar">© 2026 Vipul Agrawal · PARKING-IN · All Rights Reserved · Proprietary Software</div>
+
+<script>
+// ── Anti-copy & IP protection ──
+(function() {
+  // Disable right-click context menu
+  document.addEventListener('contextmenu', function(e) { e.preventDefault(); return false; });
+
+  // Disable keyboard shortcuts for view-source, save, print, dev-tools
+  document.addEventListener('keydown', function(e) {
+    const key = e.key.toLowerCase();
+    // Ctrl/Cmd + U (view source), S (save), P (print), A (select all)
+    if ((e.ctrlKey || e.metaKey) && ['u','s','p','a'].includes(key)) {
+      e.preventDefault(); return false;
+    }
+    // F12 (devtools), F5 (refresh - allow)
+    if (e.key === 'F12') { e.preventDefault(); return false; }
+    // Ctrl+Shift+I / Ctrl+Shift+J / Ctrl+Shift+C (devtools)
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && ['i','j','c'].includes(key)) {
+      e.preventDefault(); return false;
+    }
+  });
+
+  // Disable drag
+  document.addEventListener('dragstart', function(e) { e.preventDefault(); return false; });
+
+  // Watermark in console
+  console.log('%c⚠ PARKING-IN — Proprietary Software', 'color:#f0a500;font-size:16px;font-weight:bold;');
+  console.log('%cCopyright (c) 2026 Vipul Agrawal. All Rights Reserved.', 'color:#6e92b5;font-size:12px;');
+  console.log('%cUnauthorized copying or distribution is strictly prohibited.', 'color:#ff6b6b;font-size:12px;');
+})();
+</script>
 
 <script>
 // ════════════════════════════════════════════════

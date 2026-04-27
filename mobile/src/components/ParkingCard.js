@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+// Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';

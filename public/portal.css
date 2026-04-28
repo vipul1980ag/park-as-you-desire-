@@ -115,6 +115,50 @@ input, select, textarea { font-family: inherit; }
 }
 .nav-icon-btn:hover { background: rgba(255,255,255,0.15); }
 
+/* DNW-AI brand badge in navbar */
+.dnw-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  margin-left: 12px;
+  padding: 4px 10px 4px 4px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.18);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+.dnw-badge:hover {
+  background: rgba(255,255,255,0.15);
+  box-shadow: 0 0 14px rgba(26,108,240,0.45);
+}
+.dnw-badge-icon { width: 30px; height: 30px; filter: drop-shadow(0 0 5px rgba(26,108,240,0.55)); flex-shrink: 0; }
+.dnw-globe-svg  { width: 100%; height: 100%; }
+.dnw-badge-text { font-size: 12px; font-weight: 700; color: #fff; letter-spacing: 0.5px; white-space: nowrap; }
+.dnw-badge-text em { font-style: normal; color: var(--accent); }
+
+/* Globe animations */
+.globe-bg { animation: parkGlobeBg 8s infinite linear; }
+@keyframes parkGlobeBg {
+  0%   { fill: rgba(26,108,240,0.82); }
+  25%  { fill: rgba(124,58,237,0.82); }
+  50%  { fill: rgba(16,185,129,0.82); }
+  75%  { fill: rgba(245,158,11,0.82); }
+  100% { fill: rgba(26,108,240,0.82); }
+}
+.globe-ring-group { transform-box: fill-box; transform-origin: center; animation: parkRingRotate 12s linear infinite; }
+@keyframes parkRingRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.globe-ring-text { fill: rgba(255,255,255,0.75); animation: parkRingColor 6s infinite linear; }
+@keyframes parkRingColor {
+  0%, 100% { fill: rgba(255,255,255,0.75); }
+  50%       { fill: rgba(240,165,0,0.95); }
+}
+.globe-dnw { fill: #fff; animation: parkDnwColor 4s infinite alternate; }
+@keyframes parkDnwColor {
+  from { fill: #fff; }
+  to   { fill: var(--accent); }
+}
+
 /* ============================================================
    LANDING PAGE
    ============================================================ */

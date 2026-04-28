@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LocationInput from '../components/LocationInput';
+import BrandFooter from '../components/BrandFooter';
 
 const T = {
   bg: '#0d1b2a',
@@ -221,6 +222,7 @@ export default function ParkingPlannerScreen({ navigation }) {
           </View>
         </View>
 
+        <BrandFooter />
         <View style={{ height: 110 }} />
       </ScrollView>
 

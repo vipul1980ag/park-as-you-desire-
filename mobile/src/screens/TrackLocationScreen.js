@@ -21,6 +21,7 @@ import * as Location from 'expo-location';
 import LocationInput from '../components/LocationInput';
 import LeafletMapView from '../components/LeafletMapView';
 import { fetchOSMParkings, fetchOSMRoute, formatRate } from '../services/api';
+import BrandFooter from '../components/BrandFooter';
 
 const COLORS = {
   primary: '#142033',
@@ -451,6 +452,7 @@ export default function TrackLocationScreen({ navigation }) {
           ))}
         </View>
 
+        <BrandFooter />
         <View style={{ height: 100 }} />
       </ScrollView>
 

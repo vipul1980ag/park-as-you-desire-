@@ -538,6 +538,16 @@
     border-top: 1px solid var(--border);
     letter-spacing: 0.3px;
   }
+  /* Brand footer — shown at the bottom of every page */
+  .brand-footer {
+    display: flex; align-items: center; gap: 10px;
+    padding: 18px 20px; margin-top: 8px;
+  }
+  .brand-footer-line { flex: 1; height: 1px; background: var(--border); }
+  .brand-footer-text {
+    font-size: 10px; color: #3a5070; font-style: italic;
+    text-align: center; flex-shrink: 1;
+  }
 </style>
 </head>
 <body>
@@ -607,6 +617,11 @@
         🏢 Own a space? <strong style="color:var(--gold)">List it here →</strong>
       </div>
     </div>
+    <div class="brand-footer">
+      <div class="brand-footer-line"></div>
+      <span class="brand-footer-text">This belongs to DNW — Designed, coded and Implemented by Vipul Agrawal</span>
+      <div class="brand-footer-line"></div>
+    </div>
   </div>
 </div>
 
@@ -671,6 +686,11 @@
       <div class="card" id="priority-list"></div>
     </div>
 
+    <div class="brand-footer">
+      <div class="brand-footer-line"></div>
+      <span class="brand-footer-text">This belongs to DNW — Designed, coded and Implemented by Vipul Agrawal</span>
+      <div class="brand-footer-line"></div>
+    </div>
   </div>
   <div class="footer-fixed">
     <button class="btn-gold" onclick="doSearch()">🔍 Find Parking</button>
@@ -709,6 +729,11 @@
     </div>
 
     <div id="results-list"></div>
+    <div class="brand-footer">
+      <div class="brand-footer-line"></div>
+      <span class="brand-footer-text">This belongs to DNW — Designed, coded and Implemented by Vipul Agrawal</span>
+      <div class="brand-footer-line"></div>
+    </div>
   </div>
 </div>
 
@@ -721,6 +746,11 @@
   </div>
   <div class="scroll-body" style="padding-bottom:100px">
     <div id="detail-content"></div>
+    <div class="brand-footer">
+      <div class="brand-footer-line"></div>
+      <span class="brand-footer-text">This belongs to DNW — Designed, coded and Implemented by Vipul Agrawal</span>
+      <div class="brand-footer-line"></div>
+    </div>
   </div>
   <div class="action-bar">
     <button class="btn-outline" id="detail-nav-btn">🧭 Navigate</button>
@@ -750,6 +780,11 @@
       <span class="quick-chip" onclick="sendQuick('24 hour parking near me')">24hr parking</span>
       <span class="quick-chip" onclick="sendQuick('Private parking spots available')">Private spots</span>
     </div>
+  </div>
+  <div class="brand-footer" style="padding:10px 20px">
+    <div class="brand-footer-line"></div>
+    <span class="brand-footer-text">This belongs to DNW — Designed, coded and Implemented by Vipul Agrawal</span>
+    <div class="brand-footer-line"></div>
   </div>
   <div class="input-bar">
     <textarea class="chat-input" id="chat-input" rows="1" placeholder="Ask ParkBot anything…" onkeydown="chatKeydown(event)"></textarea>

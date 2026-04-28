@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import ParkingCard from '../components/ParkingCard';
 import LeafletMapView from '../components/LeafletMapView';
 import { getParkings, fetchOSMParkings } from '../services/api';
+import BrandFooter from '../components/BrandFooter';
 
 const T = {
   bg: '#0d1b2a',
@@ -219,6 +220,7 @@ export default function SearchResultsScreen({ navigation, route }) {
               </View>
             ) : null
           }
+          ListFooterComponent={<BrandFooter />}
           contentContainerStyle={{ paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
         />

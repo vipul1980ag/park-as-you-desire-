@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import BrandFooter from '../components/BrandFooter';
 
 const T = {
   bg: '#0d1b2a',
@@ -161,6 +162,7 @@ export default function HomeScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
 
+        <BrandFooter />
       </ScrollView>
     </SafeAreaView>
   );

@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { chatWithAI } from '../services/api';
+import BrandFooter from '../components/BrandFooter';
 
 const T = {
   bg: '#0d1b2a',
@@ -209,20 +210,23 @@ export default function ParkBotScreen({ navigation, route }) {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
           showsVerticalScrollIndicator={false}
           ListFooterComponent={
-            messages.length <= 1 ? (
-              <View style={styles.quickRow}>
-                {QUICK_PROMPTS.map(q => (
-                  <TouchableOpacity
-                    key={q}
-                    style={styles.quickChip}
-                    onPress={() => { setInput(q); }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.quickChipText}>{q}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            ) : null
+            <>
+              {messages.length <= 1 && (
+                <View style={styles.quickRow}>
+                  {QUICK_PROMPTS.map(q => (
+                    <TouchableOpacity
+                      key={q}
+                      style={styles.quickChip}
+                      onPress={() => { setInput(q); }}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.quickChipText}>{q}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              <BrandFooter />
+            </>
           }
         />
 

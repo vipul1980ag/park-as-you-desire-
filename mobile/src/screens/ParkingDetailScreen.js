@@ -18,6 +18,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getParkingById, fetchOSMRoute, formatRate } from '../services/api';
 import LeafletMapView from '../components/LeafletMapView';
+import BrandFooter from '../components/BrandFooter';
 
 const T = {
   bg: '#0d1b2a',
@@ -324,6 +325,7 @@ export default function ParkingDetailScreen({ navigation, route }) {
           </View>
         ) : null}
 
+        <BrandFooter />
         <View style={{ height: 120 }} />
       </ScrollView>
 

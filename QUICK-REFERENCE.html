@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Park As You Desire — Quick Reference</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1b2a; color: #e2eaf4; font-family: 'Segoe UI', system-ui, sans-serif; padding: 24px; }
+  h1 { color: #f0a500; font-size: 22px; border-bottom: 2px solid #f0a500; padding-bottom: 8px; margin-bottom: 20px; }
+  h2 { color: #0ab5a0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; margin: 20px 0 8px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .card { background: #142033; border: 1px solid #243350; border-radius: 10px; padding: 16px; }
+  .card h2 { margin-top: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: 5px 8px; border-bottom: 1px solid #1c2e44; vertical-align: top; }
+  td:first-child { color: #6e92b5; white-space: nowrap; width: 40%; }
+  code { background: #1c2e44; color: #a78bfa; padding: 2px 6px; border-radius: 4px; font-size: 12px; font-family: 'Cascadia Code', 'Consolas', monospace; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .gold { background: rgba(240,165,0,0.15); color: #f0a500; border: 1px solid rgba(240,165,0,0.3); }
+  .teal { background: rgba(10,181,160,0.15); color: #0ab5a0; border: 1px solid rgba(10,181,160,0.3); }
+  .purple { background: rgba(167,139,250,0.15); color: #a78bfa; border: 1px solid rgba(167,139,250,0.3); }
+  .cmd { background: #0d1b2a; border: 1px solid #243350; border-radius: 6px; padding: 10px 12px; font-family: monospace; font-size: 12px; color: #0ab5a0; margin: 6px 0; }
+  .cmd span { color: #6e92b5; }
+  .sep { border: none; border-top: 1px solid #1c2e44; margin: 10px 0; }
+  footer { text-align: center; color: #243350; font-size: 11px; margin-top: 24px; }
+  @media print { body { background: #fff; color: #000; } .card { border: 1px solid #ccc; background: #f9f9f9; } }
+</style>
+</head>
+<body>
+
+<h1>&#x1F17F; Park As You Desire — Quick Reference Card</h1>
+
+<div class="grid">
+
+  <!-- LOCATIONS -->
+  <div class="card">
+    <h2>Locations &amp; Repos</h2>
+    <table>
+      <tr><td>Local path</td><td><code>C:/Users/vipul/park-as-you-desire/</code></td></tr>
+      <tr><td>GitHub</td><td><code>vipul1980ag/park-as-you-desire-</code></td></tr>
+      <tr><td>Live URL</td><td><code>parking.dnw-ai.com</code></td></tr>
+      <tr><td>Hosting</td><td><span class="badge teal">Railway</span></td></tr>
+      <tr><td>Standalone</td><td><code>parking-app.html</code> (no server)</td></tr>
+    </table>
+  </div>
+
+  <!-- LOCAL DEV COMMANDS -->
+  <div class="card">
+    <h2>Run Locally</h2>
+    <div class="cmd"><span># Backend API (port 3002)</span><br>cd C:/Users/vipul/park-as-you-desire<br>node server/server.js</div>
+    <div class="cmd"><span># Mobile (Expo)</span><br>cd mobile<br>npm start &nbsp;&nbsp;&nbsp;&nbsp;<span># Expo Go QR code</span><br>npm run web &nbsp;<span># browser :8081</span></div>
+    <div class="cmd"><span># Standalone (no server)</span><br>open parking-app.html</div>
+  </div>
+
+  <!-- TECH STACK -->
+  <div class="card">
+    <h2>Tech Stack</h2>
+    <table>
+      <tr><td>Backend</td><td>Node.js + Express <code>server/server.js</code></td></tr>
+      <tr><td>Mobile</td><td>React Native + Expo (<code>mobile/</code>)</td></tr>
+      <tr><td>AI</td><td>Claude <code>claude-opus-4-6</code> + SSE streaming</td></tr>
+      <tr><td>Maps</td><td>OpenStreetMap / Overpass + Leaflet</td></tr>
+      <tr><td>Search</td><td>Photon API (Komoot) autocomplete</td></tr>
+      <tr><td>Routing</td><td>OSRM (Project OSRM)</td></tr>
+      <tr><td>Security</td><td>Helmet · CORS · Rate limit</td></tr>
+    </table>
+  </div>
+
+  <!-- API ROUTES -->
+  <div class="card">
+    <h2>API Routes</h2>
+    <table>
+      <tr><td><code>GET /api/health</code></td><td>Health check</td></tr>
+      <tr><td><code>GET /api/parkings</code></td><td>All listings (public)</td></tr>
+      <tr><td><code>POST /api/parkings</code></td><td>Search by lat/lng/radius</td></tr>
+      <tr><td colspan="2" style="padding-top:8px; color:#6e92b5; font-size:11px;">Owner routes — require <code>x-api-key</code> header</td></tr>
+      <tr><td><code>GET /api/owner/parkings</code></td><td>My listings</td></tr>
+      <tr><td><code>POST /api/owner/parkings</code></td><td>Add listing</td></tr>
+      <tr><td><code>PUT /api/owner/parkings/:id</code></td><td>Update listing</td></tr>
+      <tr><td><code>DELETE /api/owner/parkings/:id</code></td><td>Remove listing</td></tr>
+      <tr><td><code>GET /api/owner/stats</code></td><td>Dashboard stats</td></tr>
+      <tr><td colspan="2" style="padding-top:8px; color:#6e92b5; font-size:11px;">AI — rate limited 20 req/15min</td></tr>
+      <tr><td><code>POST /api/ai/chat</code></td><td>ParkBot SSE stream</td></tr>
+    </table>
+  </div>
+
+  <!-- ENV VARS -->
+  <div class="card">
+    <h2>Environment Variables (Railway)</h2>
+    <table>
+      <tr><td><code>ANTHROPIC_API_KEY</code></td><td>Claude AI — required</td></tr>
+      <tr><td><code>OWNER_API_KEY</code></td><td>Protects owner routes</td></tr>
+      <tr><td><code>NODE_ENV</code></td><td>Set to <code>production</code></td></tr>
+      <tr><td><code>PORT</code></td><td>Auto-set by Railway</td></tr>
+    </table>
+  </div>
+
+  <!-- SECURITY -->
+  <div class="card">
+    <h2>Security Implemented</h2>
+    <table>
+      <tr><td>Helmet</td><td>CSP, HSTS, X-Frame-Options</td></tr>
+      <tr><td>CORS</td><td>Locked to <code>parking.dnw-ai.com</code> + localhost</td></tr>
+      <tr><td>Rate limit</td><td>100 req/15min · 20/15min on <code>/api/ai</code></td></tr>
+      <tr><td>Body size</td><td>50 kb max payload</td></tr>
+      <tr><td>AI input</td><td>Max 40 msgs · 2000 chars each</td></tr>
+      <tr><td>Owner auth</td><td><code>x-api-key</code> or <code>Bearer</code> header</td></tr>
+      <tr><td>Errors</td><td>No internal details leaked</td></tr>
+      <tr><td>HTML app</td><td>Right-click · F12 · Ctrl+U/S blocked</td></tr>
+    </table>
+  </div>
+
+  <!-- UI THEME -->
+  <div class="card">
+    <h2>Dark Premium Theme</h2>
+    <table>
+      <tr><td>Background</td><td><code>#0d1b2a</code> &nbsp;<span style="display:inline-block;width:14px;height:14px;background:#0d1b2a;border:1px solid #243350;border-radius:3px;vertical-align:middle"></span></td></tr>
+      <tr><td>Surface</td><td><code>#142033</code> &nbsp;<span style="display:inline-block;width:14px;height:14px;background:#142033;border:1px solid #243350;border-radius:3px;vertical-align:middle"></span></td></tr>
+      <tr><td>Surface 2</td><td><code>#1c2e44</code> &nbsp;<span style="display:inline-block;width:14px;height:14px;background:#1c2e44;border:1px solid #243350;border-radius:3px;vertical-align:middle"></span></td></tr>
+      <tr><td>Gold (CTA)</td><td><code>#f0a500</code> &nbsp;<span style="display:inline-block;width:14px;height:14px;background:#f0a500;border-radius:3px;vertical-align:middle"></span></td></tr>
+      <tr><td>Teal (GPS)</td><td><code>#0ab5a0</code> &nbsp;<span style="display:inline-block;width:14px;height:14px;background:#0ab5a0;border-radius:3px;vertical-align:middle"></span></td></tr>
+      <tr><td>Purple</td><td><code>#a78bfa</code> &nbsp;<span style="display:inline-block;width:14px;height:14px;background:#a78bfa;border-radius:3px;vertical-align:middle"></span></td></tr>
+      <tr><td>Text</td><td><code>#e2eaf4</code> &nbsp;/ muted <code>#6e92b5</code></td></tr>
+    </table>
+  </div>
+
+  <!-- PROJECT STRUCTURE -->
+  <div class="card">
+    <h2>Project Structure</h2>
+    <table>
+      <tr><td><code>server/server.js</code></td><td>Express app + security</td></tr>
+      <tr><td><code>server/routes/parkings.js</code></td><td>Public parking listings</td></tr>
+      <tr><td><code>server/routes/owner.js</code></td><td>Owner CRUD (auth required)</td></tr>
+      <tr><td><code>server/routes/ai.js</code></td><td>ParkBot SSE endpoint</td></tr>
+      <tr><td><code>server/data/parkings.json</code></td><td>Local data store</td></tr>
+      <tr><td><code>mobile/src/screens/</code></td><td>Home · Planner · Track · Results · Detail · ParkBot</td></tr>
+      <tr><td><code>mobile/src/services/api.js</code></td><td>All API calls</td></tr>
+      <tr><td><code>public/</code></td><td>Web frontend static files</td></tr>
+      <tr><td><code>parking-app.html</code></td><td>Standalone offline SPA</td></tr>
+      <tr><td><code>LICENSE</code></td><td>Proprietary — all rights reserved</td></tr>
+    </table>
+  </div>
+
+  <!-- DEPLOY CHECKLIST -->
+  <div class="card" style="grid-column: 1 / -1;">
+    <h2>Deploy Checklist — Railway + Wix DNS</h2>
+    <table>
+      <tr><td>1.</td><td>Railway → New Project → GitHub → <code>vipul1980ag/park-as-you-desire-</code></td></tr>
+      <tr><td>2.</td><td>Set env vars: <code>ANTHROPIC_API_KEY</code> &nbsp; <code>OWNER_API_KEY</code> &nbsp; <code>NODE_ENV=production</code></td></tr>
+      <tr><td>3.</td><td>Railway → Settings → Networking → Custom Domain → <code>parking.dnw-ai.com</code></td></tr>
+      <tr><td>4.</td><td>Copy the Railway CNAME value (e.g. <code>xyz.up.railway.app</code>)</td></tr>
+      <tr><td>5.</td><td>Wix DNS → Add CNAME → Host: <code>parking</code> &nbsp; Value: <em>(Railway CNAME)</em></td></tr>
+      <tr><td>6.</td><td>Wait ~5 min for DNS propagation → visit <code>https://parking.dnw-ai.com</code></td></tr>
+    </table>
+  </div>
+
+</div>
+
+<footer style="margin-top:24px; color:#243350; font-size:11px; text-align:center;">
+  Copyright &copy; 2026 Vipul Agrawal &nbsp;&middot;&nbsp; Park As You Desire &nbsp;&middot;&nbsp; All Rights Reserved
+</footer>
+
+</body>
+</html>

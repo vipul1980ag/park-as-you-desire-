@@ -7,7 +7,7 @@ export default function BrandFooter() {
     <View style={styles.wrap}>
       <View style={styles.line} />
       <Text style={styles.text}>
-        This belongs to DNW — Designed, coded and Implemented by Vipul Agrawal
+        This belongs to DNW (DNEXTWELT): Designed, coded and implemented by Vipul Agrawal
       </Text>
       <View style={styles.line} />
     </View>

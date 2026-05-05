@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getOwnerParkings, getOwnerStats, updateParking } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const COLORS = {
   primary: '#1a3c5e',
@@ -29,9 +30,6 @@ const COLORS = {
   error: '#c62828',
   errorBg: '#ffebee',
 };
-
-// Default owner — in production this would come from auth
-const OWNER_ID = 'demo-owner';
 
 function StatCard({ icon, value, label, color }) {
   return (
@@ -136,6 +134,7 @@ function OwnerParkingCard({ parking, onEdit, onToggle }) {
 }
 
 export default function OwnerHomeScreen({ navigation }) {
+  const { user, logout } = useAuth();
   const [listings, setListings] = useState([]);
   const [stats, setStats] = useState({ totalListings: 0, activeNow: 0, bookingsToday: 0 });
   const [loading, setLoading] = useState(true);
@@ -144,8 +143,8 @@ export default function OwnerHomeScreen({ navigation }) {
   const loadData = useCallback(async () => {
     try {
       const [listingsData, statsData] = await Promise.all([
-        getOwnerParkings(OWNER_ID),
-        getOwnerStats(OWNER_ID),
+        getOwnerParkings(user?.token),
+        getOwnerStats(user?.token),
       ]);
       setListings(listingsData);
       setStats(statsData);
@@ -193,7 +192,7 @@ export default function OwnerHomeScreen({ navigation }) {
               const updated = await updateParking(
                 parking.id,
                 { availableSpots: newSpots },
-                OWNER_ID
+                user?.token
               );
               if (updated) {
                 setListings((prev) =>
@@ -262,9 +261,19 @@ export default function OwnerHomeScreen({ navigation }) {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Parking Owner Portal</Text>
-          <Text style={styles.headerSub}>Manage your parking listings</Text>
+          <Text style={styles.headerSub}>{user?.name || 'Manage your parking listings'}</Text>
         </View>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity
+          onPress={() => {
+            Alert.alert('Sign out', 'Are you sure you want to sign out?', [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Sign out', style: 'destructive', onPress: logout },
+            ]);
+          }}
+          style={styles.backBtn}
+        >
+          <Ionicons name="log-out-outline" size={22} color={COLORS.white} />
+        </TouchableOpacity>
       </View>
 
       {loading ? (

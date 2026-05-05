@@ -10,6 +10,7 @@ const path = require('path');
 const parkingsRouter = require('./routes/parkings');
 const ownerRouter = require('./routes/owner');
 const aiRouter = require('./routes/ai');
+const authRouter = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -50,7 +51,7 @@ app.use(cors({
     }
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-owner-id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'x-owner-id', 'ownerid'],
   credentials: true,
 }));
 
@@ -89,6 +90,7 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, '../public')));
 
 // ── Routes ───────────────────────────────────────────────────────────────────
+app.use('/api/auth', authRouter);
 app.use('/api/parkings', parkingsRouter);
 app.use('/api/owner', ownerRouter);
 app.use('/api/ai', aiLimiter, aiRouter);

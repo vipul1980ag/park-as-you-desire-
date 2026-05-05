@@ -8,17 +8,13 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const DATA_PATH = path.join(__dirname, '../data/parkings.json');
+const USERS_PATH = path.join(__dirname, '../data/users.json');
 
-// ── Owner API key auth ────────────────────────────────────────────────────────
 const OWNER_API_KEY = process.env.OWNER_API_KEY;
 
-function requireOwnerAuth(req, res, next) {
-  if (!OWNER_API_KEY) return next(); // skip in dev if key not set
-  const key = req.headers['x-api-key'] || req.headers['authorization']?.replace('Bearer ', '');
-  if (!key || key !== OWNER_API_KEY) {
-    return res.status(401).json({ success: false, message: 'Unauthorised' });
-  }
-  next();
+function readUsers() {
+  if (!fs.existsSync(USERS_PATH)) return [];
+  return JSON.parse(fs.readFileSync(USERS_PATH, 'utf8'));
 }
 
 function readParkings() {
@@ -30,9 +26,38 @@ function writeParkings(data) {
   fs.writeFileSync(DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
 }
 
-// Middleware to extract ownerId from header or query
+// ── Auth: accepts either admin API key or per-user token ──────────────────────
+function requireOwnerAuth(req, res, next) {
+  const bearerToken = req.headers['authorization']?.replace('Bearer ', '');
+  const apiKey = req.headers['x-api-key'];
+
+  // Admin API key
+  if (OWNER_API_KEY && (apiKey === OWNER_API_KEY || bearerToken === OWNER_API_KEY)) {
+    req.ownerId = req.headers['ownerid'] || req.headers['x-owner-id'] || req.query.ownerId || 'admin';
+    return next();
+  }
+
+  // Per-user token from /api/auth/login or /api/auth/register
+  if (bearerToken) {
+    const users = readUsers();
+    const user = users.find((u) => u.token === bearerToken);
+    if (user) {
+      req.ownerId = user.userId;
+      return next();
+    }
+  }
+
+  // Dev mode: no API key configured — allow but use demo-owner
+  if (!OWNER_API_KEY) {
+    req.ownerId = req.headers['ownerid'] || req.headers['x-owner-id'] || req.query.ownerId || 'demo-owner';
+    return next();
+  }
+
+  return res.status(401).json({ success: false, message: 'Unauthorised' });
+}
+
 function getOwnerId(req) {
-  return req.headers['ownerid'] || req.headers['x-owner-id'] || req.query.ownerId || 'demo-owner';
+  return req.ownerId || 'demo-owner';
 }
 
 // All owner routes require auth

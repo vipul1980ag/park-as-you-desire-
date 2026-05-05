@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import BrandFooter from '../components/BrandFooter';
+import { useAuth } from '../context/AuthContext';
 
 const T = {
   bg: '#0d1b2a',
@@ -33,6 +34,7 @@ const T = {
 };
 
 export default function HomeScreen({ navigation }) {
+  const { user } = useAuth();
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={T.bg} />
@@ -152,13 +154,15 @@ export default function HomeScreen({ navigation }) {
         {/* Owner CTA */}
         <TouchableOpacity
           style={styles.ownerCta}
-          onPress={() => navigation.navigate('OwnerHome')}
+          onPress={() => navigation.navigate(user ? 'OwnerHome' : 'Login')}
           activeOpacity={0.8}
         >
           <Ionicons name="business-outline" size={17} color={T.textMuted} />
           <Text style={styles.ownerCtaText}>
             Own a space?{' '}
-            <Text style={{ color: T.gold, fontWeight: '700' }}>List it here →</Text>
+            <Text style={{ color: T.gold, fontWeight: '700' }}>
+              {user ? 'Go to portal →' : 'Sign in to list →'}
+            </Text>
           </Text>
         </TouchableOpacity>
 

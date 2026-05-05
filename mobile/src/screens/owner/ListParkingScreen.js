@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { addParking, updateParking } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const COLORS = {
   primary: '#1a3c5e',
@@ -41,7 +42,6 @@ const PARKING_TYPES = [
 ];
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const OWNER_ID = 'demo-owner';
 
 function FormField({ label, required, children, error }) {
   return (
@@ -94,6 +94,7 @@ function TimeSelector({ label, value, onChange }) {
 }
 
 export default function ListParkingScreen({ navigation, route }) {
+  const { user } = useAuth();
   const existingParking = route?.params?.existingParking || null;
   const isEdit = !!existingParking;
 
@@ -199,9 +200,9 @@ export default function ListParkingScreen({ navigation, route }) {
 
       let result;
       if (isEdit) {
-        result = await updateParking(existingParking.id, payload, OWNER_ID);
+        result = await updateParking(existingParking.id, payload, user?.token);
       } else {
-        result = await addParking(payload, OWNER_ID);
+        result = await addParking(payload, user?.token);
       }
 
       if (result) {

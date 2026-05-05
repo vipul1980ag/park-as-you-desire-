@@ -490,32 +490,63 @@ export function chatWithAI(messages, context, { onDelta, onToolCalls, onDone, on
   return () => xhr.abort();
 }
 
+// ---------- Auth APIs ----------
+
+/**
+ * Register a new owner account.
+ * @param {{ name, email, password }} credentials
+ * @returns {{ userId, token, name, email }}
+ */
+export const registerUser = async ({ name, email, password }) => {
+  const res = await fetchWithTimeout(`${BASE_URL}/auth/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, email, password }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Registration failed');
+  return { userId: json.userId, token: json.token, name: json.name, email: json.email };
+};
+
+/**
+ * Sign in an existing owner.
+ * @param {{ email, password }} credentials
+ * @returns {{ userId, token, name, email }}
+ */
+export const loginUser = async ({ email, password }) => {
+  const res = await fetchWithTimeout(`${BASE_URL}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'Login failed');
+  return { userId: json.userId, token: json.token, name: json.name, email: json.email };
+};
+
 // ---------- Owner APIs ----------
 
 /**
  * Add a new parking listing.
- * Falls back to a local mock operation if server is unavailable.
  * @param {object} data - parking fields
- * @param {string} ownerId
+ * @param {string} token - user auth token from AuthContext
  */
-export const addParking = async (data, ownerId = 'demo-owner') => {
+export const addParking = async (data, token) => {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/owner/parkings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ownerId,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(data),
     });
     const json = await res.json();
     return json.data || null;
   } catch {
-    // Offline fallback — return a locally-constructed object
     const newParking = {
       ...data,
       id: String(Date.now()),
-      ownerId,
       availableSpots: data.totalSpots || 1,
       distance: null,
     };
@@ -525,18 +556,18 @@ export const addParking = async (data, ownerId = 'demo-owner') => {
 };
 
 /**
- * Get all parkings belonging to an owner.
- * @param {string} ownerId
+ * Get all parkings belonging to the logged-in owner.
+ * @param {string} token - user auth token from AuthContext
  */
-export const getOwnerParkings = async (ownerId = 'demo-owner') => {
+export const getOwnerParkings = async (token) => {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/owner/parkings`, {
-      headers: { ownerId },
+      headers: { Authorization: `Bearer ${token}` },
     });
     const json = await res.json();
     return json.data || [];
   } catch {
-    return MOCK_PARKINGS.filter((p) => p.ownerId === ownerId);
+    return [];
   }
 };
 
@@ -544,15 +575,15 @@ export const getOwnerParkings = async (ownerId = 'demo-owner') => {
  * Update an existing parking listing.
  * @param {string} id
  * @param {object} updates
- * @param {string} ownerId
+ * @param {string} token - user auth token from AuthContext
  */
-export const updateParking = async (id, updates, ownerId = 'demo-owner') => {
+export const updateParking = async (id, updates, token) => {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/owner/parkings/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        ownerId,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify(updates),
     });
@@ -570,24 +601,16 @@ export const updateParking = async (id, updates, ownerId = 'demo-owner') => {
 
 /**
  * Get owner dashboard stats.
- * @param {string} ownerId
+ * @param {string} token - user auth token from AuthContext
  */
-export const getOwnerStats = async (ownerId = 'demo-owner') => {
+export const getOwnerStats = async (token) => {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/owner/stats`, {
-      headers: { ownerId },
+      headers: { Authorization: `Bearer ${token}` },
     });
     const json = await res.json();
     return json.data || { totalListings: 0, activeNow: 0, bookingsToday: 0 };
   } catch {
-    const listings = MOCK_PARKINGS.filter((p) => p.ownerId === ownerId);
-    return {
-      totalListings: listings.length,
-      activeNow: listings.filter((p) => p.availableSpots > 0).length,
-      bookingsToday: listings.reduce(
-        (sum, p) => sum + (p.totalSpots - p.availableSpots),
-        0
-      ),
-    };
+    return { totalListings: 0, activeNow: 0, bookingsToday: 0 };
   }
 };

@@ -2,6 +2,7 @@
   "expo": {
     "name": "Park As You Desire",
     "slug": "park-as-you-desire",
+    "scheme": "parkingapp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -30,6 +31,13 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [{ "scheme": "parkingapp" }],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
     "web": {
@@ -41,7 +49,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Park As You Desire to use your location."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

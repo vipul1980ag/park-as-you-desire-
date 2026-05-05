@@ -101,4 +101,61 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// POST /api/auth/sso — cross-app sign-in via Safe2Go JWT
+router.post('/sso', async (req, res) => {
+  try {
+    const { safe2go_jwt } = req.body;
+    if (!safe2go_jwt) {
+      return res.status(400).json({ success: false, message: 'safe2go_jwt is required' });
+    }
+
+    // Verify the JWT with Safe2Go backend
+    let s2gUser;
+    try {
+      const response = await fetch('https://safe2go.dnw-ai.com/api/auth/me', {
+        headers: { Authorization: `Bearer ${safe2go_jwt}` },
+      });
+      if (!response.ok) throw new Error('rejected');
+      s2gUser = await response.json();
+    } catch {
+      return res.status(401).json({ success: false, message: 'Invalid or expired Safe2Go session' });
+    }
+
+    const { name, email } = s2gUser;
+    if (!email) {
+      return res.status(401).json({ success: false, message: 'Could not retrieve account from Safe2Go' });
+    }
+
+    // Upsert user in parking users.json
+    const users = readUsers();
+    let user = users.find((u) => u.email.toLowerCase() === email.toLowerCase());
+    if (user) {
+      user.token = uuidv4();
+      if (name) user.name = name;
+    } else {
+      user = {
+        userId: uuidv4(),
+        name: name || email,
+        email: email.toLowerCase(),
+        passwordHash: null, // SSO — no password
+        token: uuidv4(),
+        createdAt: new Date().toISOString(),
+      };
+      users.push(user);
+    }
+    writeUsers(users);
+
+    res.json({
+      success: true,
+      userId: user.userId,
+      token: user.token,
+      name: user.name,
+      email: user.email,
+    });
+  } catch (err) {
+    console.error('SSO error:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

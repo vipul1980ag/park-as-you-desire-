@@ -509,6 +509,22 @@ export const registerUser = async ({ name, email, password }) => {
 };
 
 /**
+ * Sign in via a Safe2Go JWT (cross-app SSO).
+ * @param {string} safe2goJwt - JWT token from Safe2Go's SecureStore
+ * @returns {{ userId, token, name, email }}
+ */
+export const ssoLogin = async (safe2goJwt) => {
+  const res = await fetchWithTimeout(`${BASE_URL}/auth/sso`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ safe2go_jwt: safe2goJwt }),
+  });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.message || 'SSO login failed');
+  return { userId: json.userId, token: json.token, name: json.name, email: json.email };
+};
+
+/**
  * Sign in an existing owner.
  * @param {{ email, password }} credentials
  * @returns {{ userId, token, name, email }}

@@ -116,6 +116,28 @@ export default function ParkingDetailScreen({ navigation, route }) {
     );
   };
 
+  const handleNavigateWithSafe2Go = () => {
+    if (!parking) return;
+    const url =
+      `safe2go://navigate` +
+      `?lat=${parking.lat}` +
+      `&lng=${parking.lng}` +
+      `&name=${encodeURIComponent(parking.name)}` +
+      `&address=${encodeURIComponent(parking.address || '')}`;
+    Linking.canOpenURL(url)
+      .then((supported) => {
+        if (supported) {
+          Linking.openURL(url);
+        } else {
+          Alert.alert(
+            'Safe2Go not installed',
+            'Install the Safe2Go app to plan a multi-modal journey to this parking spot.'
+          );
+        }
+      })
+      .catch(() => Alert.alert('Error', 'Could not open Safe2Go.'));
+  };
+
   if (loading) return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="light-content" backgroundColor={T.bg} />
@@ -335,9 +357,13 @@ export default function ParkingDetailScreen({ navigation, route }) {
           <Ionicons name="navigate" size={18} color={T.teal} />
           <Text style={styles.navBtnText}>Navigate</Text>
         </TouchableOpacity>
+        <TouchableOpacity style={styles.s2gBtn} onPress={handleNavigateWithSafe2Go} activeOpacity={0.85}>
+          <Ionicons name="shield-checkmark" size={18} color="#1565C0" />
+          <Text style={styles.s2gBtnText}>Safe2Go</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.bookBtn} onPress={handleBook} activeOpacity={0.85}>
           <Ionicons name="checkmark-circle" size={18} color={T.bg} />
-          <Text style={styles.bookBtnText}>Book This Spot</Text>
+          <Text style={styles.bookBtnText}>Book</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -441,15 +467,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     flex: 1, paddingVertical: 15, borderRadius: 16,
     borderWidth: 1.5, borderColor: 'rgba(10,181,160,0.4)',
-    backgroundColor: T.tealLight, gap: 8,
+    backgroundColor: T.tealLight, gap: 6,
   },
-  navBtnText: { color: T.teal, fontWeight: '800', fontSize: 15 },
+  navBtnText: { color: T.teal, fontWeight: '800', fontSize: 13 },
+  s2gBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    flex: 1, paddingVertical: 15, borderRadius: 16,
+    borderWidth: 1.5, borderColor: 'rgba(21,101,192,0.5)',
+    backgroundColor: 'rgba(21,101,192,0.12)', gap: 6,
+  },
+  s2gBtnText: { color: '#4d9cf8', fontWeight: '800', fontSize: 13 },
   bookBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    flex: 2, paddingVertical: 15, borderRadius: 16,
-    backgroundColor: T.gold, gap: 8,
+    flex: 1, paddingVertical: 15, borderRadius: 16,
+    backgroundColor: T.gold, gap: 6,
     shadowColor: T.gold, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
   },
-  bookBtnText: { color: T.bg, fontWeight: '900', fontSize: 16 },
+  bookBtnText: { color: T.bg, fontWeight: '900', fontSize: 13 },
 });

@@ -962,6 +962,32 @@ function navigateToParking() {
   openGoogleMaps(selectedParking);
 }
 
+function navigateWithSafe2Go() {
+  if (!selectedParking) return;
+  const lat = selectedParking.lat || selectedParking.latitude;
+  const lng = selectedParking.lng || selectedParking.longitude;
+  if (!lat || !lng) { showToast('No location data for this parking spot.', 'error'); return; }
+
+  const deepLink =
+    `safe2go://navigate` +
+    `?lat=${lat}` +
+    `&lng=${lng}` +
+    `&name=${encodeURIComponent(selectedParking.name || 'Parking')}` +
+    `&address=${encodeURIComponent(selectedParking.address || '')}`;
+
+  // Cancel fallback toast if browser loses focus (app opened successfully)
+  let fallbackTimer;
+  const onBlur = () => { clearTimeout(fallbackTimer); window.removeEventListener('blur', onBlur); };
+  window.addEventListener('blur', onBlur);
+
+  fallbackTimer = setTimeout(() => {
+    window.removeEventListener('blur', onBlur);
+    showToast('Safe2Go app not found — open this page on your phone with Safe2Go installed.', 'warning');
+  }, 2000);
+
+  window.location.href = deepLink;
+}
+
 function openGoogleMaps(p) {
   const lat = p.lat || p.latitude;
   const lng = p.lng || p.longitude;

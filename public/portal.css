@@ -115,6 +115,22 @@ input, select, textarea { font-family: inherit; }
 }
 .nav-icon-btn:hover { background: rgba(255,255,255,0.15); }
 
+.nav-s2g-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 13px;
+  border-radius: var(--radius-sm);
+  background: #1565C0;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.2);
+  transition: background var(--transition), transform var(--transition);
+  white-space: nowrap;
+}
+.nav-s2g-btn:hover { background: #1976D2; transform: translateY(-1px); }
+
 /* DNW-AI brand badge in navbar */
 .dnw-badge {
   display: flex;

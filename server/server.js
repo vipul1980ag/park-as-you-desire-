@@ -19,6 +19,10 @@ const PORT = process.env.PORT || 3002;
 const ALLOWED_ORIGINS = [
   'https://parking.dnw-ai.com',
   'https://www.parking.dnw-ai.com',
+  'https://safe2go.dnw-ai.com',
+  'https://www.safe2go.dnw-ai.com',
+  'https://toc.dnw-ai.com',
+  'https://www.toc.dnw-ai.com',
   'http://localhost:3002',
   'http://localhost:8081',
   'http://localhost:19006',

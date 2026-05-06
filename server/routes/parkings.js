@@ -93,24 +93,54 @@ router.get('/', (req, res) => {
   }
 });
 
-// GET /api/parkings/nearby?lat=&lng=&radius=
-// Calls Overpass API server-side and returns OSM parking spots sorted by distance.
+// GET /api/parkings/nearby?lat=&lng=&radius=&vehicle=car|truck|van|motorcycle&minHeight=
+// vehicle: type of vehicle — affects which OSM spots are fetched and filtered.
+// minHeight: vehicle height in FEET (used for truck height-clearance filtering).
 router.get('/nearby', async (req, res) => {
   try {
-    const lat = parseFloat(req.query.lat);
-    const lng = parseFloat(req.query.lng);
-    const radius = parseInt(req.query.radius) || 800;
+    const lat       = parseFloat(req.query.lat);
+    const lng       = parseFloat(req.query.lng);
+    const vehicle   = (req.query.vehicle || 'car').toLowerCase();
+    const isTruck   = vehicle === 'truck' || vehicle === 'hgv' || vehicle === 'van';
+    // minHeight in feet → convert to metres for OSM tag comparison
+    const minHeightFt = parseFloat(req.query.minHeight) || (isTruck ? 13 : 0);
+    const minHeightM  = minHeightFt * 0.3048;
+
+    // Trucks need a larger search radius by default (harder to maneuver, fewer suitable spots)
+    const radius = parseInt(req.query.radius) || (isTruck ? 2000 : 800);
 
     if (isNaN(lat) || isNaN(lng)) {
       return res.status(400).json({ success: false, message: 'lat and lng are required' });
     }
 
-    const query = `[out:json][timeout:12];(way["amenity"="parking"](around:${radius},${lat},${lng});node["amenity"="parking"](around:${radius},${lat},${lng}););out center;`;
+    // For trucks: broader query — exclude underground/multi-storey, prefer HGV-tagged spots.
+    // For cars: standard query.
+    let query;
+    if (isTruck) {
+      query = `[out:json][timeout:15];(
+        way["amenity"="parking"]["hgv"="yes"](around:${radius},${lat},${lng});
+        node["amenity"="parking"]["hgv"="yes"](around:${radius},${lat},${lng});
+        way["amenity"="parking"]["parking"="surface"]["access"!="private"](around:${radius},${lat},${lng});
+        node["amenity"="parking"]["parking"="surface"]["access"!="private"](around:${radius},${lat},${lng});
+        way["amenity"="parking"]["parking"="street_side"](around:${radius},${lat},${lng});
+        node["amenity"="parking"]["parking"="street_side"](around:${radius},${lat},${lng});
+      );out center;`;
+    } else if (vehicle === 'motorcycle') {
+      query = `[out:json][timeout:12];(
+        way["amenity"="parking"]["motorcycle"!="no"](around:${radius},${lat},${lng});
+        node["amenity"="parking"]["motorcycle"!="no"](around:${radius},${lat},${lng});
+        way["amenity"="motorcycle_parking"](around:${radius},${lat},${lng});
+        node["amenity"="motorcycle_parking"](around:${radius},${lat},${lng});
+      );out center;`;
+    } else {
+      query = `[out:json][timeout:12];(way["amenity"="parking"](around:${radius},${lat},${lng});node["amenity"="parking"](around:${radius},${lat},${lng}););out center;`;
+    }
+
     const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `data=${encodeURIComponent(query)}`,
-      signal: AbortSignal.timeout(13000),
+      signal: AbortSignal.timeout(14000),
     });
 
     const json = await overpassRes.json();
@@ -122,36 +152,64 @@ router.get('/nearby', async (req, res) => {
         const elLng = el.lon || (el.center && el.center.lon);
         if (!elLat || !elLng) return null;
 
-        const parkingType = tags.parking || 'surface';
-        const isPrivate = tags.access === 'private' || tags.access === 'customers';
-        const fee = tags.fee === 'yes' || !!tags.charge;
-        const capacity = parseInt(tags.capacity) || (isPrivate ? 10 : 30);
-        const rates = { 'multi-storey': 3.0, underground: 3.5, street_side: 1.0, surface: 1.5 };
+        const parkingType = tags.parking || tags.amenity || 'surface';
+        const isPrivate   = tags.access === 'private' || tags.access === 'customers';
+        const fee         = tags.fee === 'yes' || !!tags.charge;
+        const capacity    = parseInt(tags.capacity) || (isPrivate ? 10 : 30);
+        const rates       = { 'multi-storey': 3.0, underground: 3.5, street_side: 1.0, surface: 1.5 };
         const costPerHour = fee ? (rates[parkingType] || 1.5) : 0;
-        const name = tags.name || 'Car Park';
-        const address =
+        const name        = tags.name || (isTruck ? 'Truck Parking' : 'Car Park');
+        const address     =
           [tags['addr:housenumber'], tags['addr:street'], tags['addr:city']].filter(Boolean).join(', ') ||
           `${elLat.toFixed(4)}, ${elLng.toFixed(4)}`;
         const distance = haversineDistance(lat, lng, elLat, elLng);
 
+        // Height clearance check — skip spots that explicitly restrict height below vehicle's need
+        if (minHeightM > 0 && tags.maxheight) {
+          const mh = parseFloat(tags.maxheight);
+          if (!isNaN(mh) && mh < minHeightM) return null;
+        }
+
+        // Truck suitability scoring
+        const hgvAllowed    = tags.hgv === 'yes' || tags.hgv === 'designated';
+        const hgvForbidden  = tags.hgv === 'no';
+        const isUnderground = parkingType === 'underground';
+        const isMultiStorey = parkingType === 'multi-storey';
+        const truckSuitable = isTruck
+          ? (hgvAllowed || (!hgvForbidden && !isUnderground && !isMultiStorey))
+          : true;
+
+        if (isTruck && !truckSuitable) return null;
+
         return {
-          id: `osm-${el.id}`,
+          id:           `osm-${el.id}`,
           name,
           address,
-          lat: elLat,
-          lng: elLng,
-          type: parkingType,
+          lat:          elLat,
+          lng:          elLng,
+          type:         parkingType,
           costPerHour,
-          costPerDay: costPerHour * 10,
+          costPerDay:   costPerHour * 10,
           isPrivate,
           capacity,
-          distance: parseFloat(distance.toFixed(3)),
+          distance:     parseFloat(distance.toFixed(3)),
+          truckSuitable,
+          hgvDesignated: hgvAllowed,
+          access:        tags.access || 'yes',
+          maxheight:     tags.maxheight || null,
         };
       })
       .filter(Boolean)
-      .sort((a, b) => a.distance - b.distance);
+      .sort((a, b) => {
+        // HGV-designated spots float to top for trucks
+        if (isTruck) {
+          if (a.hgvDesignated && !b.hgvDesignated) return -1;
+          if (!a.hgvDesignated && b.hgvDesignated) return 1;
+        }
+        return a.distance - b.distance;
+      });
 
-    res.json({ success: true, count: spots.length, data: spots });
+    res.json({ success: true, count: spots.length, data: spots, vehicle, minHeightFt });
   } catch (err) {
     console.error('GET /api/parkings/nearby error:', err);
     res.status(500).json({ success: false, message: 'Overpass API error' });

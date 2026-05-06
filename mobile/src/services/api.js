@@ -271,7 +271,8 @@ function convertOSMToParking(el, refLat, refLng) {
   const elLng = el.lon || (el.center && el.center.lon);
   if (!elLat || !elLng) return null;
 
-  const parkingType = tags.parking || 'surface';
+  // landuse=parking is common in Mediterranean/Adriatic regions — treat as surface
+  const parkingType = tags.parking || (tags.landuse === 'parking' ? 'surface' : 'surface');
   const isPrivate = tags.access === 'private' || tags.access === 'customers';
   const fee = tags.fee === 'yes' || !!tags.charge;
   const capacity = parseInt(tags.capacity) || (isPrivate ? 10 : 30);
@@ -315,19 +316,39 @@ function convertOSMToParking(el, refLat, refLng) {
  * @param {number} radiusMeters
  * @param {string} typeFilter - 'surface' | 'multi-storey' | 'underground' | 'street_side' | 'private' | ''
  */
-export async function fetchOSMParkings(lat, lng, radiusMeters = 1000, typeFilter = '') {
-  const typeClause = typeFilter && typeFilter !== 'all'
-    ? `["parking"="${typeFilter}"]`
-    : '';
-  const query = `[out:json][timeout:15];(way["amenity"="parking"]${typeClause}(around:${radiusMeters},${lat},${lng});node["amenity"="parking"]${typeClause}(around:${radiusMeters},${lat},${lng}););out center;`;
+function buildOSMQuery(radiusMeters, lat, lng, typeFilter) {
+  const typeClause = typeFilter && typeFilter !== 'all' ? `["parking"="${typeFilter}"]` : '';
+  const around = `(around:${radiusMeters},${lat},${lng})`;
+  return `[out:json][timeout:15];(
+    way["amenity"="parking"]${typeClause}${around};
+    node["amenity"="parking"]${typeClause}${around};
+    way["amenity"="parking_space"]${around};
+    node["amenity"="parking_space"]${around};
+    way["landuse"="parking"]${around};
+    relation["landuse"="parking"]${around};
+  );out center;`;
+}
 
-  const res = await fetchWithTimeout(
-    'https://overpass-api.de/api/interpreter',
-    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(query)}` },
-    15000
-  );
-  const json = await res.json();
-  return (json.elements || []).map((el) => convertOSMToParking(el, lat, lng)).filter(Boolean);
+export async function fetchOSMParkings(lat, lng, radiusMeters = 1000, typeFilter = '') {
+  const doFetch = async (r) => {
+    const res = await fetchWithTimeout(
+      'https://overpass-api.de/api/interpreter',
+      { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: `data=${encodeURIComponent(buildOSMQuery(r, lat, lng, typeFilter))}` },
+      15000
+    );
+    const json = await res.json();
+    return (json.elements || []).map((el) => convertOSMToParking(el, lat, lng)).filter(Boolean);
+  };
+
+  let results = await doFetch(radiusMeters);
+  // Auto-expand radius if no results found (helps sparse areas like small island towns)
+  if (results.length === 0 && radiusMeters <= 5000) {
+    results = await doFetch(Math.min(radiusMeters * 3, 10000));
+  }
+  if (results.length === 0) {
+    results = await doFetch(20000);
+  }
+  return results;
 }
 
 /**

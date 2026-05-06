@@ -524,33 +524,63 @@ function getGPSLocation(context) {
 /* ============================================================
    OPENSTREETMAP OVERPASS API — real worldwide parking data
    ============================================================ */
-async function fetchOSMParkings(lat, lng, radiusMeters, typeFilter) {
-  // Build Overpass QL — fetch all amenity=parking nodes + ways in radius
-  let filter = '';
+
+function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
+  // Build type-specific filter for amenity=parking
+  let amenityFilter = '';
   if (typeFilter === 'street_side') {
-    filter = '["amenity"="parking"]["parking"~"street_side|on_street"]';
+    amenityFilter = '["amenity"="parking"]["parking"~"street_side|on_street"]';
   } else if (typeFilter === 'multi-storey') {
-    filter = '["amenity"="parking"]["parking"="multi-storey"]';
+    amenityFilter = '["amenity"="parking"]["parking"="multi-storey"]';
   } else if (typeFilter === 'underground') {
-    filter = '["amenity"="parking"]["parking"="underground"]';
+    amenityFilter = '["amenity"="parking"]["parking"="underground"]';
   } else if (typeFilter === 'private') {
-    filter = '["amenity"="parking"]["access"~"private|customers"]';
+    amenityFilter = '["amenity"="parking"]["access"~"private|customers"]';
   } else if (typeFilter === 'surface') {
-    filter = '["amenity"="parking"]["parking"~"surface|rooftop"]';
+    amenityFilter = '["amenity"="parking"]["parking"~"surface|rooftop"]';
   } else {
-    filter = '["amenity"="parking"]';
+    amenityFilter = '["amenity"="parking"]';
   }
 
-  const query = `[out:json][timeout:30];(node${filter}(around:${radiusMeters},${lat},${lng});way${filter}(around:${radiusMeters},${lat},${lng}););out center;`;
+  const around = `(around:${radiusMeters},${lat},${lng})`;
 
+  // Include amenity=parking, amenity=parking_space, and landuse=parking
+  // (Mediterranean/Adriatic areas often use landuse=parking instead of amenity=parking)
+  return `[out:json][timeout:30];(
+    node${amenityFilter}${around};
+    way${amenityFilter}${around};
+    node["amenity"="parking_space"]${around};
+    way["amenity"="parking_space"]${around};
+    way["landuse"="parking"]${around};
+    relation["landuse"="parking"]${around};
+  );out center;`;
+}
+
+async function overpassFetch(query) {
   const res = await fetch('https://overpass-api.de/api/interpreter', {
     method: 'POST',
-    body: query
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `data=${encodeURIComponent(query)}`,
   });
   if (!res.ok) throw new Error(`Overpass API ${res.status}`);
   const data = await res.json();
+  return data.elements || [];
+}
 
-  return data.elements
+async function fetchOSMParkings(lat, lng, radiusMeters, typeFilter) {
+  let elements = await overpassFetch(buildOverpassQuery(radiusMeters, lat, lng, typeFilter));
+
+  // Auto-expand: if no results found, retry with progressively larger radii
+  if (elements.length === 0 && radiusMeters <= 5000) {
+    const expanded = Math.min(radiusMeters * 3, 10000);
+    showToast(`No parking in ${Math.round(radiusMeters / 1000)} km — expanding to ${Math.round(expanded / 1000)} km…`, 'info');
+    elements = await overpassFetch(buildOverpassQuery(expanded, lat, lng, typeFilter));
+  }
+  if (elements.length === 0 && radiusMeters <= 10000) {
+    elements = await overpassFetch(buildOverpassQuery(20000, lat, lng, typeFilter));
+  }
+
+  return elements
     .map(el => convertOSMToParking(el, lat, lng))
     .filter(p => p.lat && p.lng);
 }
@@ -560,10 +590,12 @@ function convertOSMToParking(el, refLat, refLng) {
   const elLat  = el.lat  ?? el.center?.lat;
   const elLng  = el.lon  ?? el.center?.lon;
   const parking = (tags.parking || '').toLowerCase();
+  const landuse = (tags.landuse || '').toLowerCase();
   const access  = (tags.access  || '').toLowerCase();
   const fee     = (tags.fee     || '').toLowerCase();
 
   // Map OSM tags → internal type
+  // landuse=parking is common in Mediterranean/Adriatic regions
   let typeId = 1, typeName = 'Parking';
   if (parking === 'multi-storey') {
     typeId = 7; typeName = 'Multi-Storey Car Park';
@@ -575,6 +607,8 @@ function convertOSMToParking(el, refLat, refLng) {
     typeId = 3; typeName = 'Private Parking';
   } else if (parking === 'surface' || parking === 'rooftop') {
     typeId = 5; typeName = 'Surface Car Park';
+  } else if (landuse === 'parking') {
+    typeId = 5; typeName = 'Car Park';
   } else {
     typeId = 1; typeName = 'Public Parking';
   }

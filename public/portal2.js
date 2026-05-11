@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal2.js v20260511-D loaded — dest GPS btn, coord confirm, full OSM query');
+console.log('[PAYD] portal2.js v20260511-E loaded — near me btn, max-coverage OSM query');
 
 const API = '/api';
 
@@ -535,19 +535,34 @@ function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
 
   const around = `(around:${radiusMeters},${lat},${lng})`;
 
-  // Comprehensive OSM parking query:
-  // amenity=parking (node/way/relation), parking_space, landuse=parking, park_ride
-  return `[out:json][timeout:30];(
+  // Maximum-coverage OSM parking query — every tag combination used worldwide
+  return `[out:json][timeout:45];(
     node${amenityFilter}${around};
     way${amenityFilter}${around};
     relation${amenityFilter}${around};
     node["amenity"="parking_space"]${around};
     way["amenity"="parking_space"]${around};
+    relation["amenity"="parking_space"]${around};
+    node["amenity"="motorcycle_parking"]${around};
+    way["amenity"="motorcycle_parking"]${around};
     node["landuse"="parking"]${around};
     way["landuse"="parking"]${around};
     relation["landuse"="parking"]${around};
-    node["amenity"="parking"]["park_ride"](${around});
-    way["amenity"="parking"]["park_ride"](${around});
+    node["park_ride"](${around});
+    way["park_ride"](${around});
+    node["amenity"="parking"]["access"!="no"]${around};
+    way["amenity"="parking"]["access"!="no"]${around};
+    node["amenity"="parking_entrance"]${around};
+    way["parking"="surface"]${around};
+    way["parking"="underground"]${around};
+    way["parking"="multi-storey"]${around};
+    way["parking"="rooftop"]${around};
+    way["parking"="street_side"]${around};
+    way["parking"="on_street"]${around};
+    way["parking"="carports"]${around};
+    node["parking"="surface"]${around};
+    node["parking"="underground"]${around};
+    node["parking"="multi-storey"]${around};
   );out center;`;
 }
 
@@ -768,6 +783,71 @@ async function trackSearch() {
   if (allParkings.length > 0) showToast(`Found ${allParkings.length} nearby spots.`, 'success');
 
   setButtonLoading(btn, false, '📍 Find Parking Near Me');
+}
+
+/* ============================================================
+   FIND PARKING NEAR MY CURRENT LOCATION (Planner tab quick button)
+   ============================================================ */
+async function findParkingNearMe() {
+  const btn = document.getElementById('nearMeBtn');
+  setButtonLoading(btn, true, '📍 Find Parking Near My Location');
+
+  if (!navigator.geolocation) {
+    showToast('Geolocation is not supported by your browser.', 'error');
+    setButtonLoading(btn, false, '📍 Find Parking Near My Location');
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    async pos => {
+      const lat    = pos.coords.latitude;
+      const lng    = pos.coords.longitude;
+      const locStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+      // Update FROM field and map marker
+      userLat = lat; userLng = lng;
+      const fromInput = document.getElementById('plannerFrom');
+      if (fromInput) fromInput.value = locStr;
+      if (map) showUserOnMap(lat, lng);
+      showToast('📍 Location detected — searching nearby parking…', 'success');
+
+      const radius = parseInt(document.getElementById('plannerRadius').value) || 2000;
+      const type   = document.getElementById('plannerType').value;
+
+      showLoading(true);
+      try {
+        allParkings = await fetchOSMParkings(lat, lng, radius, type);
+        if (allParkings.length === 0) {
+          showToast('No parking found nearby — try a larger search radius.', 'warning');
+        } else {
+          showToast(`Found ${allParkings.length} parking spots near you.`, 'success');
+        }
+      } catch (err) {
+        console.error('findParkingNearMe OSM error:', err);
+        showToast(`OSM error: ${err.message}`, 'error');
+        allParkings = [];
+      }
+
+      applyPrioritySort('distance');
+      activeFilter = 'all';
+      document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === 'all'));
+      filteredParkings = [...allParkings];
+      renderResults(filteredParkings);
+      renderMapMarkers(filteredParkings);
+      if (map) map.setView([lat, lng], 14);
+      showLoading(false);
+      setButtonLoading(btn, false, '📍 Find Parking Near My Location');
+    },
+    err => {
+      let msg = 'Could not detect location.';
+      if (err.code === 1) msg = 'Location access denied — please allow location in your browser settings.';
+      if (err.code === 2) msg = 'Location unavailable. Please try again.';
+      if (err.code === 3) msg = 'Location request timed out.';
+      showToast(msg, 'error');
+      setButtonLoading(btn, false, '📍 Find Parking Near My Location');
+    },
+    { timeout: 10000, maximumAge: 60000 }
+  );
 }
 
 /* ============================================================

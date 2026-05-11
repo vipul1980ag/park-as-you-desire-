@@ -262,6 +262,33 @@ input, select, textarea { font-family: inherit; }
 .btn-sm { padding: 7px 16px; font-size: 13px; }
 .btn-xs { padding: 5px 12px; font-size: 12px; }
 .btn-block { width: 100%; justify-content: center; }
+.btn-nearme {
+  background: linear-gradient(135deg, #1a8a4a 0%, #27ae60 100%);
+  color: #fff;
+  border-color: #1a8a4a;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.btn-nearme:hover { background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); border-color: #27ae60; transform: translateY(-1px); box-shadow: 0 4px 14px rgba(39,174,96,0.35); }
+
+.near-me-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.near-me-divider::before,
+.near-me-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
 .btn-grey { background: #ecf0f1; color: #7f8c8d; border-color: #ecf0f1; }
 .btn-grey:hover { background: #dfe6e9; border-color: #dfe6e9; }
 .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }

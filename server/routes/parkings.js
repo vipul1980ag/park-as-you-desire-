@@ -239,6 +239,87 @@ router.get('/nearby', async (req, res) => {
   }
 });
 
+// GET /api/parkings/nominatim?lat=&lng=&radius=
+// Server-side proxy to Nominatim amenity=parking search (Railway can reach Nominatim).
+router.get('/nominatim', async (req, res) => {
+  try {
+    const lat    = parseFloat(req.query.lat);
+    const lng    = parseFloat(req.query.lng);
+    const radius = Math.min(parseInt(req.query.radius) || 2000, 25000);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ success: false, message: 'lat and lng are required' });
+    }
+
+    // Bounding box: radius metres → decimal degrees
+    const latDeg = radius / 111000;
+    const lngDeg = radius / (111000 * Math.cos(lat * Math.PI / 180));
+    // Nominatim viewbox: left,top,right,bottom = minLon,maxLat,maxLon,minLat
+    const viewbox = `${(lng - lngDeg).toFixed(6)},${(lat + latDeg).toFixed(6)},${(lng + lngDeg).toFixed(6)},${(lat - latDeg).toFixed(6)}`;
+
+    const url = `https://nominatim.openstreetmap.org/search?amenity=parking&format=json&limit=50&bounded=1&viewbox=${viewbox}&extratags=1`;
+
+    const nomRes = await fetch(url, {
+      headers: {
+        'Accept-Language': 'en',
+        'User-Agent': 'ParkAsYouDesire/1.0 (parking.dnw-ai.com)'
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (!nomRes.ok) throw new Error(`Nominatim HTTP ${nomRes.status}`);
+    const data = await nomRes.json();
+
+    const spots = (data || []).map(item => {
+      const elLat = parseFloat(item.lat);
+      const elLon = parseFloat(item.lon);
+      const tags   = item.extratags || {};
+      const parking = (tags.parking  || '').toLowerCase();
+      const access  = (tags.access   || '').toLowerCase();
+      const fee     = (tags.fee      || '').toLowerCase();
+
+      let typeName = 'Parking';
+      if (parking === 'multi-storey')                            typeName = 'Multi-Storey Car Park';
+      else if (parking === 'underground' || parking === 'basement') typeName = 'Underground Car Park';
+      else if (parking === 'street_side' || parking === 'on_street') typeName = 'Street Parking';
+      else if (access === 'private' || access === 'customers')  typeName = 'Private Parking';
+      else if (parking === 'surface')                            typeName = 'Surface Car Park';
+      else if (parking === 'rooftop')                            typeName = 'Rooftop Car Park';
+
+      const feeInfo = fee === 'no' ? 'Free' : fee === 'yes' ? 'Paid — check on arrival' : 'Rate unknown';
+
+      const nameParts = (item.display_name || '').split(',');
+      const name = nameParts[0].trim() || typeName;
+
+      return {
+        id:          `nom-${item.osm_type}-${item.osm_id}`,
+        name,
+        address:     item.display_name || '',
+        lat:         elLat,
+        lng:         elLon,
+        type:        parking || 'surface',
+        typeName,
+        costPerHour: fee === 'no' ? 0 : null,
+        feeInfo,
+        costPerDay:  null,
+        capacity:    tags.capacity ? parseInt(tags.capacity) : null,
+        distance:    parseFloat(haversineDistance(lat, lng, elLat, elLon).toFixed(3)),
+        maxheight:   tags.maxheight ? parseFloat(tags.maxheight) : null,
+        maxwidth:    tags.maxwidth  ? parseFloat(tags.maxwidth)  : null,
+        maxweight:   tags.maxweight ? parseFloat(tags.maxweight) : null,
+        access:      access || 'yes',
+        opening_hours: tags.opening_hours || null,
+        operator:    tags.operator || null,
+      };
+    }).sort((a, b) => a.distance - b.distance);
+
+    res.json({ success: true, count: spots.length, data: spots, source: 'nominatim' });
+  } catch (err) {
+    console.error('GET /api/parkings/nominatim error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/parkings/:id
 router.get('/:id', (req, res) => {
   try {

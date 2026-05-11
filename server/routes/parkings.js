@@ -107,7 +107,7 @@ router.get('/nearby', async (req, res) => {
     const minHeightM  = minHeightFt * 0.3048;
 
     // Trucks need a larger search radius by default (harder to maneuver, fewer suitable spots)
-    const radius = parseInt(req.query.radius) || (isTruck ? 2000 : 800);
+    const radius = parseInt(req.query.radius) || (isTruck ? 3000 : 2000);
 
     if (isNaN(lat) || isNaN(lng)) {
       return res.status(400).json({ success: false, message: 'lat and lng are required' });
@@ -136,14 +136,30 @@ router.get('/nearby', async (req, res) => {
       query = `[out:json][timeout:12];(way["amenity"="parking"](around:${radius},${lat},${lng});node["amenity"="parking"](around:${radius},${lat},${lng}););out center;`;
     }
 
-    const overpassRes = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: `data=${encodeURIComponent(query)}`,
-      signal: AbortSignal.timeout(14000),
-    });
+    const MIRRORS = [
+      'https://overpass-api.de/api/interpreter',
+      'https://overpass.kumi.systems/api/interpreter',
+      'https://overpass.openstreetmap.ru/api/interpreter',
+    ];
 
-    const json = await overpassRes.json();
+    let json = null;
+    let lastErr = '';
+    for (const mirror of MIRRORS) {
+      try {
+        const r = await fetch(mirror, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: AbortSignal.timeout(18000),
+        });
+        if (r.ok) { json = await r.json(); break; }
+        lastErr = `HTTP ${r.status} from ${mirror}`;
+      } catch (e) {
+        lastErr = `${mirror}: ${e.message}`;
+        console.warn('Overpass mirror failed:', lastErr);
+      }
+    }
+    if (!json) throw new Error(`All Overpass mirrors failed. Last: ${lastErr}`);
 
     const spots = (json.elements || [])
       .map((el) => {
@@ -218,8 +234,8 @@ router.get('/nearby', async (req, res) => {
 
     res.json({ success: true, count: spots.length, data: spots, vehicle, minHeightFt });
   } catch (err) {
-    console.error('GET /api/parkings/nearby error:', err);
-    res.status(500).json({ success: false, message: 'Overpass API error' });
+    console.error('GET /api/parkings/nearby error:', err.message);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

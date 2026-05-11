@@ -412,7 +412,7 @@ export default function TrackLocationScreen({ navigation, route }) {
           <LocationInput
             label="Where are you going?"
             value={destination}
-            onChangeText={setDestination}
+            onChangeText={(text) => { setDestination(text); setDestCoords(null); }}
             onLocationSelect={(loc) => setDestCoords({ lat: loc.lat, lng: loc.lng })}
             placeholder="Enter destination address"
             icon="flag"

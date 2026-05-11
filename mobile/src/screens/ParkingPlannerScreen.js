@@ -126,7 +126,7 @@ export default function ParkingPlannerScreen({ navigation, route }) {
             <LocationInput
               label="From"
               value={from}
-              onChangeText={setFrom}
+              onChangeText={(text) => { setFrom(text); setFromCoords(null); }}
               onLocationSelect={(loc) => setFromCoords({ lat: loc.lat, lng: loc.lng })}
               placeholder="Enter starting point"
               icon="radio-button-on-outline"
@@ -140,7 +140,7 @@ export default function ParkingPlannerScreen({ navigation, route }) {
             <LocationInput
               label="To"
               value={to}
-              onChangeText={setTo}
+              onChangeText={(text) => { setTo(text); setToCoords(null); }}
               onLocationSelect={(loc) => setToCoords({ lat: loc.lat, lng: loc.lng })}
               placeholder="Enter your destination"
               icon="location"

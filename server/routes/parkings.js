@@ -154,10 +154,11 @@ router.get('/nearby', async (req, res) => {
 
         const parkingType = tags.parking || tags.amenity || 'surface';
         const isPrivate   = tags.access === 'private' || tags.access === 'customers';
-        const fee         = tags.fee === 'yes' || !!tags.charge;
+        const feeFree     = tags.fee === 'no';
+        const feePaid     = tags.fee === 'yes' || !!tags.charge;
         const capacity    = parseInt(tags.capacity) || (isPrivate ? 10 : 30);
-        const rates       = { 'multi-storey': 3.0, underground: 3.5, street_side: 1.0, surface: 1.5 };
-        const costPerHour = fee ? (rates[parkingType] || 1.5) : 0;
+        const costPerHour = feeFree ? 0 : null;
+        const feeInfo     = feeFree ? 'Free' : feePaid ? 'Paid — check on arrival' : 'Rate unknown';
         const name        = tags.name || (isTruck ? 'Truck Parking' : 'Car Park');
         const address     =
           [tags['addr:housenumber'], tags['addr:street'], tags['addr:city']].filter(Boolean).join(', ') ||
@@ -188,15 +189,21 @@ router.get('/nearby', async (req, res) => {
           lat:          elLat,
           lng:          elLng,
           type:         parkingType,
+          typeName:     parkingType.charAt(0).toUpperCase() + parkingType.slice(1).replace(/_/g,' '),
           costPerHour,
-          costPerDay:   costPerHour * 10,
+          feeInfo,
+          costPerDay:   null,
           isPrivate,
           capacity,
           distance:     parseFloat(distance.toFixed(3)),
           truckSuitable,
           hgvDesignated: hgvAllowed,
           access:        tags.access || 'yes',
-          maxheight:     tags.maxheight || null,
+          maxheight:     tags.maxheight ? parseFloat(tags.maxheight) : null,
+          maxwidth:      tags.maxwidth  ? parseFloat(tags.maxwidth)  : null,
+          maxweight:     tags.maxweight ? parseFloat(tags.maxweight) : null,
+          opening_hours: tags.opening_hours || null,
+          operator:      tags.operator      || null,
         };
       })
       .filter(Boolean)

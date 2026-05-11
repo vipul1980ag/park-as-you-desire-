@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal2.js v20260511-F loaded — vehicle filter, fixed Overpass query');
+console.log('[PAYD] portal2.js v20260511-G loaded — uses /api/parkings/nearby, vehicle filter');
 
 const API = '/api';
 
@@ -82,10 +82,24 @@ function getCardBorderClass(type) {
 }
 
 function getTypeName(p) {
-  return p.typeName || TYPE_NAMES[p.type] || `Type ${p.type}`;
+  if (p.typeName) return p.typeName;
+  if (p.type && isNaN(parseInt(p.type, 10))) {
+    // String type from /api/parkings/nearby
+    return p.type.charAt(0).toUpperCase() + p.type.slice(1).replace(/_/g, ' ');
+  }
+  return TYPE_NAMES[p.type] || 'Parking';
 }
 
 function getTypeColor(type) {
+  if (type && isNaN(parseInt(type, 10))) {
+    // String type from /api/parkings/nearby
+    const t = (type || '').toLowerCase();
+    if (t.includes('street') || t.includes('on_street')) return '#27ae60';
+    if (t.includes('underground'))  return '#e74c3c';
+    if (t.includes('multi'))        return '#e67e22';
+    if (t.includes('private'))      return '#9b59b6';
+    return '#3498db';
+  }
   const t = parseInt(type, 10);
   if (t === 1) return '#3498db';
   if (t === 2) return '#27ae60';
@@ -689,44 +703,47 @@ function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
   );out center;`;
 }
 
-async function overpassFetch(query) {
-  const res = await fetch('/api/osm', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
-  });
-  if (!res.ok) throw new Error(`OSM proxy ${res.status}`);
-  const data = await res.json();
-  return data.elements || [];
-}
-
 async function fetchOSMParkings(lat, lng, radiusMeters, typeFilter) {
-  let elements = await overpassFetch(buildOverpassQuery(radiusMeters, lat, lng, typeFilter));
+  const params = new URLSearchParams({ lat, lng, radius: radiusMeters, vehicle: vehicleType || 'car' });
+  const res = await fetch(`/api/parkings/nearby?${params}`);
+  if (!res.ok) throw new Error(`Parking API ${res.status}`);
+  const data = await res.json();
+  if (!data.success) throw new Error(data.message || 'Parking API error');
 
-  // Auto-expand: if no results found, retry with progressively larger radii
-  if (elements.length === 0 && radiusMeters <= 5000) {
+  let spots = data.data || [];
+
+  // Type filter (client-side since API doesn't filter by type)
+  if (typeFilter && typeFilter !== '') {
+    spots = spots.filter(p => {
+      const t = (p.type || '').toLowerCase();
+      if (typeFilter === 'street_side')  return t.includes('street');
+      if (typeFilter === 'multi-storey') return t.includes('multi');
+      if (typeFilter === 'underground')  return t.includes('underground');
+      if (typeFilter === 'private')      return p.isPrivate;
+      if (typeFilter === 'surface')      return t === 'surface' || t === 'rooftop';
+      return true;
+    });
+  }
+
+  // Vehicle height/width/weight filter
+  const before = spots.length;
+  spots = spots.filter(p => {
+    if (vehicleHeight && p.maxheight && p.maxheight < vehicleHeight) return false;
+    if (vehicleWidth  && p.maxwidth  && p.maxwidth  < vehicleWidth)  return false;
+    if (vehicleWeight && p.maxweight && p.maxweight < vehicleWeight)  return false;
+    return true;
+  });
+  const excluded = before - spots.length;
+  if (excluded > 0) showToast(`${excluded} spot(s) excluded — size restriction for your ${vehicleType}.`, 'info');
+
+  // Auto-expand if empty
+  if (spots.length === 0 && radiusMeters <= 5000) {
     const expanded = Math.min(radiusMeters * 3, 10000);
-    showToast(`No parking in ${Math.round(radiusMeters / 1000)} km — expanding to ${Math.round(expanded / 1000)} km…`, 'info');
-    elements = await overpassFetch(buildOverpassQuery(expanded, lat, lng, typeFilter));
-  }
-  if (elements.length === 0 && radiusMeters <= 10000) {
-    elements = await overpassFetch(buildOverpassQuery(20000, lat, lng, typeFilter));
+    showToast(`No parking in ${Math.round(radiusMeters/1000)} km — expanding to ${Math.round(expanded/1000)} km…`, 'info');
+    return fetchOSMParkings(lat, lng, expanded, typeFilter);
   }
 
-  const parkings = elements
-    .map(el => convertOSMToParking(el, lat, lng))
-    .filter(p => p.lat && p.lng);
-
-  // Apply vehicle compatibility filter if vehicle is set
-  const compatible = parkings.filter(p => isVehicleCompatible(p));
-
-  // Show how many were filtered out
-  const filtered = parkings.length - compatible.length;
-  if (filtered > 0 && vehicleHeight) {
-    showToast(`${filtered} spot(s) excluded — height/size restriction for your ${vehicleType}.`, 'info');
-  }
-
-  return compatible;
+  return spots;
 }
 
 function convertOSMToParking(el, refLat, refLng) {

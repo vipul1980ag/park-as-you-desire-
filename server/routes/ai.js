@@ -5,7 +5,11 @@ const express = require('express');
 const router = express.Router();
 const Anthropic = require('@anthropic-ai/sdk');
 
-const client = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
+let client = null;
+function getClient() {
+  if (!client) client = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return client;
+}
 
 // Prompt caching: keep system stable (no volatile content) so the cache prefix is always valid.
 const SYSTEM_PROMPT = `You are ParkBot, an expert AI assistant for the "Park As You Desire" parking app.
@@ -118,7 +122,12 @@ router.post('/chat', async (req, res) => {
   res.flushHeaders();
 
   try {
-    const stream = client.messages.stream({
+    if (!process.env.ANTHROPIC_API_KEY) {
+      res.write(`data: ${JSON.stringify({ type: 'error', message: 'AI service not configured.' })}\n\n`);
+      res.end();
+      return;
+    }
+    const stream = getClient().messages.stream({
       model: 'claude-opus-4-6',
       max_tokens: 1024,
       // Prompt caching: stable system prompt with cache_control so repeated calls

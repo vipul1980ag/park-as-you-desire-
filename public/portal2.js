@@ -406,9 +406,8 @@ function closeDropdown(dropdown) {
 
 async function nominatimSearch(query, dropdown, onSelect, input) {
   try {
-    // Photon (komoot) — fast, autocomplete-optimised, OSM-backed, no API key
-    const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=6&lang=en`;
-    const res = await fetch(url);
+    // Use our server proxy to avoid CSP/CORS issues
+    const res = await fetch(`/api/geocode/autocomplete?q=${encodeURIComponent(query)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const features = data.features || [];
@@ -1598,27 +1597,11 @@ function aiExecuteSearch(action) {
   }
 }
 
-/* Geocode a place name — tries Photon first, falls back to Nominatim */
+/* Geocode a place name — calls our server proxy (avoids browser CSP/CORS) */
 async function geocodeAddress(query) {
-  // Try Photon (fast, OSM-backed, no key)
-  try {
-    const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=en`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.features && data.features.length) {
-        const [lng, lat] = data.features[0].geometry.coordinates;
-        return { lat, lng };
-      }
-    }
-  } catch (_) {}
-
-  // Fall back to Nominatim (OpenStreetMap)
-  const res = await fetch(
-    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
-    { headers: { 'Accept-Language': 'en' } }
-  );
-  if (!res.ok) throw new Error('Geocode failed');
+  const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
+  if (!res.ok) return null;
   const data = await res.json();
-  if (!data || !data.length) return null;
-  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+  if (!data.success) return null;
+  return { lat: data.lat, lng: data.lng };
 }

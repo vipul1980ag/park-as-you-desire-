@@ -598,12 +598,12 @@ function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
 }
 
 async function overpassFetch(query) {
-  const res = await fetch('https://overpass-api.de/api/interpreter', {
+  const res = await fetch('/api/osm', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: `data=${encodeURIComponent(query)}`,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
   });
-  if (!res.ok) throw new Error(`Overpass API ${res.status}`);
+  if (!res.ok) throw new Error(`OSM proxy ${res.status}`);
   const data = await res.json();
   return data.elements || [];
 }

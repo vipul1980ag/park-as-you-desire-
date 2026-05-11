@@ -12,6 +12,7 @@ const ownerRouter = require('./routes/owner');
 const aiRouter = require('./routes/ai');
 const authRouter = require('./routes/auth');
 const geocodeRouter = require('./routes/geocode');
+const osmRouter     = require('./routes/osm');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -108,6 +109,7 @@ app.use('/api/parkings', parkingsRouter);
 app.use('/api/owner', ownerRouter);
 app.use('/api/ai', aiLimiter, aiRouter);
 app.use('/api/geocode', geocodeRouter);
+app.use('/api/osm', osmRouter);
 
 // ── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {

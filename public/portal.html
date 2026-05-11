@@ -70,8 +70,12 @@
         <div class="form-group">
           <label class="form-label">To (Destination)</label>
           <div class="autocomplete-wrap">
-            <input type="text" class="form-control" id="plannerTo" placeholder="Where are you going?" autocomplete="off" />
+            <div class="input-with-btn">
+              <input type="text" class="form-control" id="plannerTo" placeholder="Where are you going?" autocomplete="off" />
+              <button class="gps-btn" id="destGpsBtn" title="Use my current GPS as destination" onclick="getGPSLocation('dest')">📍</button>
+            </div>
             <div class="autocomplete-dropdown" id="plannerToDropdown"></div>
+            <div class="coord-confirm" id="destCoordConfirm" style="display:none;font-size:11px;color:#4caf50;margin-top:3px;">✅ <span id="destCoordText"></span></div>
           </div>
         </div>
 
@@ -346,6 +350,6 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="portal2.js?v=20260511c"></script>
+<script src="portal2.js?v=20260511d"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal2.js v20260511-C loaded — OSM+geocode via server proxy');
+console.log('[PAYD] portal2.js v20260511-D loaded — dest GPS btn, coord confirm, full OSM query');
 
 const API = '/api';
 
@@ -251,16 +251,17 @@ function setupAllAutocompletes() {
     plannerToInput.addEventListener('input', () => {
       clearTimeout(geoTimer);
       destLat = null; destLng = null;
+      hideDestCoordConfirm();
       if (destMarker) { map && map.removeLayer(destMarker); destMarker = null; }
       const q = plannerToInput.value.trim();
       if (q.length >= 3) {
         geoTimer = setTimeout(async () => {
           try {
             const coords = await geocodeAddress(q);
-            // Only apply if the input text hasn't changed since we started
             if (coords && plannerToInput.value.trim() === q) {
               destLat = coords.lat; destLng = coords.lng;
               showDestMarker(coords.lat, coords.lng);
+              showDestCoordConfirm(coords.lat, coords.lng);
             }
           } catch (_) {}
         }, 700);
@@ -430,6 +431,20 @@ function switchTab(tab) {
 /* ============================================================
    GPS LOCATION (manual button)
    ============================================================ */
+function showDestCoordConfirm(lat, lng) {
+  const el   = document.getElementById('destCoordConfirm');
+  const text = document.getElementById('destCoordText');
+  if (el && text) {
+    text.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)} captured`;
+    el.style.display = 'block';
+  }
+}
+
+function hideDestCoordConfirm() {
+  const el = document.getElementById('destCoordConfirm');
+  if (el) el.style.display = 'none';
+}
+
 function getGPSLocation(context) {
   if (!navigator.geolocation) {
     showToast('Geolocation is not supported by your browser.', 'error');
@@ -438,34 +453,48 @@ function getGPSLocation(context) {
 
   const btn = context === 'planner'
     ? document.getElementById('plannerGpsBtn')
-    : document.getElementById('detectBtn');
+    : context === 'dest'
+      ? document.getElementById('destGpsBtn')
+      : document.getElementById('detectBtn');
 
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = context === 'planner'
-      ? '<span class="spinner spinner-white" style="width:14px;height:14px;border-width:2px;"></span>'
-      : '⏳ Detecting…';
+    btn.innerHTML = context === 'track'
+      ? '⏳ Detecting…'
+      : '<span class="spinner spinner-white" style="width:14px;height:14px;border-width:2px;"></span>';
   }
 
   navigator.geolocation.getCurrentPosition(
     pos => {
-      userLat = pos.coords.latitude;
-      userLng = pos.coords.longitude;
-      const locStr = `${userLat.toFixed(5)}, ${userLng.toFixed(5)}`;
+      const lat    = pos.coords.latitude;
+      const lng    = pos.coords.longitude;
+      const locStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 
       if (context === 'planner') {
+        userLat = lat; userLng = lng;
         const fromInput = document.getElementById('plannerFrom');
         if (fromInput) fromInput.value = locStr;
         if (btn) { btn.disabled = false; btn.innerHTML = '📍'; }
+        if (map) showUserOnMap(lat, lng);
+
+      } else if (context === 'dest') {
+        destLat = lat; destLng = lng;
+        const toInput = document.getElementById('plannerTo');
+        if (toInput) toInput.value = locStr;
+        if (btn) { btn.disabled = false; btn.innerHTML = '📍'; }
+        showDestMarker(lat, lng);
+        showDestCoordConfirm(lat, lng);
+
       } else {
+        userLat = lat; userLng = lng;
         const locEl  = document.getElementById('detectedLoc');
         const textEl = document.getElementById('detectedLocText');
         if (textEl) textEl.textContent = locStr;
         if (locEl)  locEl.classList.add('show');
         if (btn) { btn.disabled = false; btn.innerHTML = '📍 Detect My Location'; }
+        if (map) showUserOnMap(lat, lng);
       }
 
-      if (map) showUserOnMap(userLat, userLng);
       showToast('📍 Location detected!', 'success');
     },
     err => {
@@ -476,7 +505,7 @@ function getGPSLocation(context) {
       showToast(msg, 'error');
       if (btn) {
         btn.disabled = false;
-        btn.innerHTML = context === 'planner' ? '📍' : '📍 Detect My Location';
+        btn.innerHTML = context === 'track' ? '📍 Detect My Location' : '📍';
       }
     },
     { timeout: 10000, maximumAge: 60000 }
@@ -506,15 +535,19 @@ function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
 
   const around = `(around:${radiusMeters},${lat},${lng})`;
 
-  // Include amenity=parking, amenity=parking_space, and landuse=parking
-  // (Mediterranean/Adriatic areas often use landuse=parking instead of amenity=parking)
+  // Comprehensive OSM parking query:
+  // amenity=parking (node/way/relation), parking_space, landuse=parking, park_ride
   return `[out:json][timeout:30];(
     node${amenityFilter}${around};
     way${amenityFilter}${around};
+    relation${amenityFilter}${around};
     node["amenity"="parking_space"]${around};
     way["amenity"="parking_space"]${around};
+    node["landuse"="parking"]${around};
     way["landuse"="parking"]${around};
     relation["landuse"="parking"]${around};
+    node["amenity"="parking"]["park_ride"](${around});
+    way["amenity"="parking"]["park_ride"](${around});
   );out center;`;
 }
 

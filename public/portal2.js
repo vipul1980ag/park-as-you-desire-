@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal2.js v20260511-E loaded — near me btn, max-coverage OSM query');
+console.log('[PAYD] portal2.js v20260511-F loaded — vehicle filter, fixed Overpass query');
 
 const API = '/api';
 
@@ -28,6 +28,13 @@ let modalMiniMap   = null;
 /* Live tracking state */
 let watchId             = null;
 let isLiveTracking      = false;
+
+/* Vehicle state */
+let vehicleType   = 'car';   // car|suv|van|pickup|truck|motorcycle|minibus
+let vehicleHeight = null;    // metres
+let vehicleWidth  = null;    // metres
+let vehicleLength = null;    // metres
+let vehicleWeight = null;    // tonnes
 let lastPos             = null;
 let lastPosTime         = null;
 let lastSpeedKmh        = null;
@@ -513,6 +520,120 @@ function getGPSLocation(context) {
 }
 
 /* ============================================================
+   VEHICLE SECTION
+   ============================================================ */
+const VEHICLE_ICONS = {
+  car: '🚗', suv: '🚙', van: '🚐', pickup: '🛻',
+  truck: '🚛', motorcycle: '🏍', minibus: '🚌', microcar: '🚗'
+};
+
+function toggleVehicleSection() {
+  const body  = document.getElementById('vehicleBody');
+  const arrow = document.getElementById('vehicleToggleArrow');
+  const btn   = document.getElementById('vehicleToggle');
+  const open  = body.style.display === 'none';
+  body.style.display  = open ? 'block' : 'none';
+  arrow.textContent   = open ? '▲' : '▼';
+  btn.setAttribute('aria-expanded', String(open));
+}
+
+function selectVehicleType(el) {
+  document.querySelectorAll('.vtype-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  vehicleType = el.dataset.vtype;
+  // Reset precise dimensions when type changes manually
+  vehicleHeight = null; vehicleWidth = null; vehicleLength = null; vehicleWeight = null;
+  document.getElementById('vehicleInfoCard').style.display = 'none';
+}
+
+async function lookupVehicle() {
+  const q   = (document.getElementById('vehicleMakeModel').value || '').trim();
+  if (!q) { showToast('Enter a vehicle make and model first.', 'warning'); return; }
+
+  const btn = document.getElementById('vehicleLookupBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳';
+
+  try {
+    const res  = await fetch(`/api/vehicle/lookup?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Not found');
+
+    const v = data.vehicle;
+    vehicleType   = v.type   || 'car';
+    vehicleHeight = v.height_m;
+    vehicleWidth  = v.width_m;
+    vehicleLength = v.length_m;
+    vehicleWeight = v.weight_t;
+
+    // Update type button selection
+    document.querySelectorAll('.vtype-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.vtype === vehicleType);
+    });
+
+    // Show info card
+    const icon = VEHICLE_ICONS[vehicleType] || '🚗';
+    document.getElementById('viIcon').textContent  = icon;
+    document.getElementById('viName').textContent  = `${v.make} ${v.model}${v.year_range ? ' ('+v.year_range+')' : ''}`;
+    document.getElementById('viType').textContent  = vehicleType.charAt(0).toUpperCase() + vehicleType.slice(1);
+    document.getElementById('viLen').textContent   = v.length_m ? `${v.length_m} m` : '—';
+    document.getElementById('viWid').textContent   = v.width_m  ? `${v.width_m} m`  : '—';
+    document.getElementById('viHgt').textContent   = v.height_m ? `${v.height_m} m` : '—';
+    document.getElementById('viWgt').textContent   = v.weight_t ? `${v.weight_t} t`  : '—';
+    document.getElementById('viNote').textContent  = v.notes || '';
+    document.getElementById('vehicleInfoCard').style.display = 'block';
+
+    showToast(`${icon} ${v.make} ${v.model} — dimensions loaded`, 'success');
+  } catch (err) {
+    showToast(`Vehicle not found: ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔍 Find';
+  }
+}
+
+// Returns true if a parking spot is compatible with the current vehicle
+function isVehicleCompatible(p) {
+  const tags = p._osmTags || {};
+
+  // Height restriction check
+  if (vehicleHeight && tags.maxheight) {
+    const mh = parseFloat(tags.maxheight);
+    if (!isNaN(mh) && mh < vehicleHeight) return false;
+  }
+
+  // Width restriction check
+  if (vehicleWidth && tags.maxwidth) {
+    const mw = parseFloat(tags.maxwidth);
+    if (!isNaN(mw) && mw < vehicleWidth) return false;
+  }
+
+  // Weight restriction check
+  if (vehicleWeight && tags.maxweight) {
+    const mwt = parseFloat(tags.maxweight);
+    if (!isNaN(mwt) && mwt < vehicleWeight) return false;
+  }
+
+  // Motorcycle-only spaces for non-motorcycles
+  if (vehicleType !== 'motorcycle' && tags.amenity === 'motorcycle_parking') return false;
+
+  // HGV restrictions for trucks
+  if ((vehicleType === 'truck' || vehicleType === 'minibus') && tags.hgv === 'no') return false;
+
+  // Underground / multi-storey height concern for tall vehicles
+  if (vehicleHeight && vehicleHeight > 2.1) {
+    if (p.typeName === 'Underground Car Park' || p.typeName === 'Multi-Storey Car Park') {
+      if (!tags.maxheight) {
+        // Flag as uncertain rather than exclude — add warning
+        p._heightWarning = true;
+      }
+    }
+  }
+
+  return true;
+}
+
+/* ============================================================
    OPENSTREETMAP OVERPASS API — real worldwide parking data
    ============================================================ */
 
@@ -529,6 +650,10 @@ function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
     amenityFilter = '["amenity"="parking"]["access"~"private|customers"]';
   } else if (typeFilter === 'surface') {
     amenityFilter = '["amenity"="parking"]["parking"~"surface|rooftop"]';
+  } else if (vehicleType === 'motorcycle') {
+    amenityFilter = '["amenity"~"parking|motorcycle_parking"]';
+  } else if (vehicleType === 'truck' || vehicleType === 'minibus') {
+    amenityFilter = '["amenity"="parking"]["parking"!="underground"]["parking"!="multi-storey"]';
   } else {
     amenityFilter = '["amenity"="parking"]';
   }
@@ -548,11 +673,12 @@ function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
     node["landuse"="parking"]${around};
     way["landuse"="parking"]${around};
     relation["landuse"="parking"]${around};
-    node["park_ride"](${around});
-    way["park_ride"](${around});
-    node["amenity"="parking"]["access"!="no"]${around};
-    way["amenity"="parking"]["access"!="no"]${around};
-    node["amenity"="parking_entrance"]${around};
+    node["park_ride"]${around};
+    way["park_ride"]${around};
+    node["parking"="surface"]${around};
+    node["parking"="underground"]${around};
+    node["parking"="multi-storey"]${around};
+    node["parking"="street_side"]${around};
     way["parking"="surface"]${around};
     way["parking"="underground"]${around};
     way["parking"="multi-storey"]${around};
@@ -560,9 +686,6 @@ function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
     way["parking"="street_side"]${around};
     way["parking"="on_street"]${around};
     way["parking"="carports"]${around};
-    node["parking"="surface"]${around};
-    node["parking"="underground"]${around};
-    node["parking"="multi-storey"]${around};
   );out center;`;
 }
 
@@ -590,9 +713,20 @@ async function fetchOSMParkings(lat, lng, radiusMeters, typeFilter) {
     elements = await overpassFetch(buildOverpassQuery(20000, lat, lng, typeFilter));
   }
 
-  return elements
+  const parkings = elements
     .map(el => convertOSMToParking(el, lat, lng))
     .filter(p => p.lat && p.lng);
+
+  // Apply vehicle compatibility filter if vehicle is set
+  const compatible = parkings.filter(p => isVehicleCompatible(p));
+
+  // Show how many were filtered out
+  const filtered = parkings.length - compatible.length;
+  if (filtered > 0 && vehicleHeight) {
+    showToast(`${filtered} spot(s) excluded — height/size restriction for your ${vehicleType}.`, 'info');
+  }
+
+  return compatible;
 }
 
 function convertOSMToParking(el, refLat, refLng) {
@@ -636,11 +770,21 @@ function convertOSMToParking(el, refLat, refLng) {
   ].filter(Boolean);
   const address = addrParts.length ? addrParts.join(', ') : (tags['addr:full'] || 'See map for location');
 
+  // Height/width/weight restrictions from OSM
+  const maxheight = tags.maxheight ? parseFloat(tags.maxheight) : null;
+  const maxwidth  = tags.maxwidth  ? parseFloat(tags.maxwidth)  : null;
+  const maxweight = tags.maxweight ? parseFloat(tags.maxweight) : null;
+  const maxlength = tags.maxlength ? parseFloat(tags.maxlength) : null;
+
   // Description from OSM tags
   const descParts = [
     tags.operator      ? `Operator: ${tags.operator}` : null,
     tags.opening_hours ? `Hours: ${tags.opening_hours}` : null,
     tags.maxstay       ? `Max stay: ${tags.maxstay}` : null,
+    maxheight          ? `Max height: ${maxheight} m` : null,
+    maxwidth           ? `Max width: ${maxwidth} m`   : null,
+    maxweight          ? `Max weight: ${maxweight} t`  : null,
+    maxlength          ? `Max length: ${maxlength} m`  : null,
     feeInfo,
     tags.surface       ? `Surface: ${tags.surface}` : null,
   ].filter(Boolean);
@@ -663,7 +807,10 @@ function convertOSMToParking(el, refLat, refLng) {
     closeTime: null,
     description: descParts.join(' · ') || '',
     isActive: true,
-    distance: elLat && elLng ? calcDist(refLat, refLng, elLat, elLng) : null
+    distance: elLat && elLng ? calcDist(refLat, refLng, elLat, elLng) : null,
+    maxheight, maxwidth, maxweight, maxlength,
+    _osmTags: { maxheight: tags.maxheight, maxwidth: tags.maxwidth, maxweight: tags.maxweight,
+                hgv: tags.hgv, amenity: tags.amenity }
   };
 }
 

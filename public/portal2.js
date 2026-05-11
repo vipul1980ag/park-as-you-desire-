@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal2.js v20260511-H loaded — browser Overpass with 3 mirrors');
+console.log('[PAYD] portal2.js v20260511-I loaded — simple query, full diagnostics');
 
 const API = '/api';
 
@@ -652,55 +652,9 @@ function isVehicleCompatible(p) {
    ============================================================ */
 
 function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
-  // Build type-specific filter for amenity=parking
-  let amenityFilter = '';
-  if (typeFilter === 'street_side') {
-    amenityFilter = '["amenity"="parking"]["parking"~"street_side|on_street"]';
-  } else if (typeFilter === 'multi-storey') {
-    amenityFilter = '["amenity"="parking"]["parking"="multi-storey"]';
-  } else if (typeFilter === 'underground') {
-    amenityFilter = '["amenity"="parking"]["parking"="underground"]';
-  } else if (typeFilter === 'private') {
-    amenityFilter = '["amenity"="parking"]["access"~"private|customers"]';
-  } else if (typeFilter === 'surface') {
-    amenityFilter = '["amenity"="parking"]["parking"~"surface|rooftop"]';
-  } else if (vehicleType === 'motorcycle') {
-    amenityFilter = '["amenity"~"parking|motorcycle_parking"]';
-  } else if (vehicleType === 'truck' || vehicleType === 'minibus') {
-    amenityFilter = '["amenity"="parking"]["parking"!="underground"]["parking"!="multi-storey"]';
-  } else {
-    amenityFilter = '["amenity"="parking"]';
-  }
-
-  const around = `(around:${radiusMeters},${lat},${lng})`;
-
-  // Maximum-coverage OSM parking query — every tag combination used worldwide
-  return `[out:json][timeout:45];(
-    node${amenityFilter}${around};
-    way${amenityFilter}${around};
-    relation${amenityFilter}${around};
-    node["amenity"="parking_space"]${around};
-    way["amenity"="parking_space"]${around};
-    relation["amenity"="parking_space"]${around};
-    node["amenity"="motorcycle_parking"]${around};
-    way["amenity"="motorcycle_parking"]${around};
-    node["landuse"="parking"]${around};
-    way["landuse"="parking"]${around};
-    relation["landuse"="parking"]${around};
-    node["park_ride"]${around};
-    way["park_ride"]${around};
-    node["parking"="surface"]${around};
-    node["parking"="underground"]${around};
-    node["parking"="multi-storey"]${around};
-    node["parking"="street_side"]${around};
-    way["parking"="surface"]${around};
-    way["parking"="underground"]${around};
-    way["parking"="multi-storey"]${around};
-    way["parking"="rooftop"]${around};
-    way["parking"="street_side"]${around};
-    way["parking"="on_street"]${around};
-    way["parking"="carports"]${around};
-  );out center;`;
+  const R = radiusMeters;
+  // Simple, proven 2-line query — nodes and ways with amenity=parking or landuse=parking
+  return `[out:json][timeout:25];(node["amenity"="parking"](around:${R},${lat},${lng});way["amenity"="parking"](around:${R},${lat},${lng});node["landuse"="parking"](around:${R},${lat},${lng});way["landuse"="parking"](around:${R},${lat},${lng}););out center;`;
 }
 
 const OVERPASS_MIRRORS = [
@@ -729,7 +683,9 @@ async function overpassFetch(query) {
 }
 
 async function fetchOSMParkings(lat, lng, radiusMeters, typeFilter) {
+  showToast(`Querying Overpass at ${lat.toFixed(4)},${lng.toFixed(4)} r=${radiusMeters}m…`, 'info');
   let elements = await overpassFetch(buildOverpassQuery(radiusMeters, lat, lng, typeFilter));
+  showToast(`Overpass returned ${elements.length} raw elements`, elements.length > 0 ? 'success' : 'warning');
 
   // Auto-expand if empty
   if (elements.length === 0 && radiusMeters <= 5000) {

@@ -238,7 +238,7 @@ export default function ParkingDetailScreen({ navigation, route }) {
             <View style={styles.priceDivider} />
             <View style={styles.priceBlock}>
               <Text style={styles.priceVal}>
-                {parking.costPerDay > 0 ? `£${parking.costPerDay.toFixed(2)}` : 'Free'}
+                {parking.costPerDay > 0 ? `£${parking.costPerDay.toFixed(2)}` : (parking.costPerDay === 0 ? 'Free' : '—')}
               </Text>
               <Text style={styles.priceLabel}>Per day</Text>
             </View>
@@ -246,7 +246,7 @@ export default function ParkingDetailScreen({ navigation, route }) {
               <>
                 <View style={styles.priceDivider} />
                 <View style={styles.priceBlock}>
-                  <Text style={styles.priceVal}>£{parking.costPerHour.toFixed(2)}</Text>
+                  <Text style={styles.priceVal}>£{Number(parking.costPerHour).toFixed(2)}</Text>
                   <Text style={styles.priceLabel}>Per hour</Text>
                 </View>
               </>

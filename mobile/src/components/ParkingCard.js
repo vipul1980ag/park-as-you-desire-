@@ -6,6 +6,21 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
+function formatRate(amount, per = 'hr') {
+  if (amount == null) return 'Rate unknown';
+  if (amount === 0) return 'Free';
+  try {
+    const formatted = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'GBP',
+      minimumFractionDigits: 2,
+    }).format(amount);
+    return `${formatted}/${per}`;
+  } catch {
+    return `£${amount.toFixed(2)}/${per}`;
+  }
+}
+
 export default function ParkingCard({ parking, onPress }) {
   const { T } = useTheme();
   const styles = useMemo(() => createStyles(T), [T]);
@@ -56,13 +71,15 @@ export default function ParkingCard({ parking, onPress }) {
         <View style={styles.statItem}>
           <Ionicons name="time-outline" size={13} color={T.gold} />
           <Text style={styles.statValue}>
-            {parking.costPerHour > 0 ? `£${parking.costPerHour.toFixed(2)}/hr` : 'Free'}
+            {parking.costPerHour === 0 ? 'Free'
+              : parking.costPerHour > 0 ? formatRate(parking.costPerHour)
+              : (parking.feeInfo || 'Rate unknown')}
           </Text>
         </View>
         {parking.costPerDay > 0 && (
           <View style={styles.statItem}>
             <Ionicons name="calendar-outline" size={13} color={T.textMuted} />
-            <Text style={styles.statValue}>£{parking.costPerDay.toFixed(2)}/day</Text>
+            <Text style={styles.statValue}>{formatRate(parking.costPerDay, 'day')}</Text>
           </View>
         )}
         {distance && (

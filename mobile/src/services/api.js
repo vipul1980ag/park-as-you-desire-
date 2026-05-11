@@ -273,14 +273,14 @@ function convertOSMToParking(el, refLat, refLng) {
   // landuse=parking is common in Mediterranean/Adriatic regions — treat as surface
   const parkingType = tags.parking || (tags.landuse === 'parking' ? 'surface' : 'surface');
   const isPrivate = tags.access === 'private' || tags.access === 'customers';
-  const fee = tags.fee === 'yes' || !!tags.charge;
+  const feeYes = tags.fee === 'yes' || !!tags.charge;
+  const feeFree = tags.fee === 'no';
   const capacity = parseInt(tags.capacity) || (isPrivate ? 10 : 30);
 
-  let costPerHour = 0;
-  if (fee) {
-    const typeRates = { 'multi-storey': 3.0, 'underground': 3.5, 'street_side': 1.0, 'surface': 1.5 };
-    costPerHour = typeRates[parkingType] || 1.5;
-  }
+  // Only use actual rates from OSM tags — never invent rates in a fictional currency.
+  // costPerHour === null means "paid but rate not listed in OSM".
+  let costPerHour = null;
+  if (feeFree) costPerHour = 0;
 
   const name = tags.name || `Car Park (OSM)`;
   const address = [tags['addr:housenumber'], tags['addr:street'], tags['addr:city']]
@@ -296,13 +296,14 @@ function convertOSMToParking(el, refLat, refLng) {
     type: OSM_TYPE_MAP[parkingType] || 'surface',
     typeId: 1,
     costPerHour,
-    costPerDay: costPerHour * 10,
+    costPerDay: null,
     totalSpots: capacity,
     availableSpots: Math.floor(capacity * 0.4),
     availableDays: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     availableFrom: '00:00',
     availableTo: '23:59',
     isPrivate,
+    feeInfo: feeFree ? 'Free' : feeYes ? 'Paid — check on arrival' : 'Rate unknown',
     description: `${isPrivate ? 'Private' : 'Public'} parking. Data: OpenStreetMap.`,
     distance: haversineDistance(refLat, refLng, elLat, elLng),
   };
@@ -372,11 +373,12 @@ export async function fetchOSMRoute(fromLat, fromLng, toLat, toLng) {
  * Shows per-minute if < £0.10/min, otherwise per-hour.
  */
 export function formatRate(parking) {
-  if (!parking) return 'Free';
-  const perHour = parking.costPerHour || 0;
+  if (!parking) return 'Rate unknown';
+  const perHour = parking.costPerHour;
   if (perHour === 0) return 'Free';
+  if (perHour == null) return parking.feeInfo || 'Rate unknown';
   const perMin = perHour / 60;
-  if (perMin < 0.10) return `£${perMin.toFixed(2)}/min`;
+  if (perMin < 0.10) return `£${perMin.toFixed(2)}/min (£${perHour.toFixed(2)}/hr)`;
   return `£${perHour.toFixed(2)}/hr`;
 }
 

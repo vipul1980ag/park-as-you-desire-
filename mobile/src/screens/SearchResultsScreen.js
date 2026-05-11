@@ -83,11 +83,15 @@ export default function SearchResultsScreen({ navigation, route }) {
   const handleCardPress = (parking) => navigation.navigate('ParkingDetail', { parkingId: parking.id, parking, lat, lng });
   const handleMapMarkerPress = (index) => { if (parkings[index]) handleCardPress(parkings[index]); };
 
-  const mapMarkers = parkings.map(p => ({
-    id: p.id, lat: p.lat, lng: p.lng,
-    type: p.type, name: p.name, address: p.address,
-    rate: p.costPerHour > 0 ? `£${p.costPerHour.toFixed(2)}/hr` : 'Free',
-  }));
+  const mapMarkers = parkings
+    .filter(p => p.lat && p.lng)
+    .map(p => ({
+      id: p.id || p._id, lat: p.lat, lng: p.lng,
+      type: p.type, name: p.name, address: p.address,
+      rate: p.costPerHour === 0 ? 'Free'
+        : p.costPerHour > 0 ? `£${p.costPerHour.toFixed(2)}/hr`
+        : (p.feeInfo || 'Rate unknown'),
+    }));
 
   const renderHeader = () => (
     <View>

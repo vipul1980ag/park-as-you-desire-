@@ -63,19 +63,29 @@ function buildMapHTML({ centerLat, centerLng, zoom = 14, markers = [], route = n
 
   if(cfg.userLat&&cfg.userLng) setUser(cfg.userLat,cfg.userLng);
 
+  var allMarkerLatLngs = [];
   cfg.markers.forEach(function(m,i){
+    if(!m.lat||!m.lng) return;
     var color = TYPE_COLORS[m.type]||'#1a3c5e';
-    var mk = L.marker([m.lat,m.lng],{icon:pMarker(color)}).addTo(map);
-    var popup = '<b>'+(m.name||'Parking')+'</b>';
-    if(m.rate) popup += '<br>'+m.rate;
-    if(m.address) popup += '<br><small>'+m.address+'</small>';
-    mk.bindPopup(popup);
-    mk.on('click',function(){
-      if(window.ReactNativeWebView){
-        window.ReactNativeWebView.postMessage(JSON.stringify({type:'markerClick',index:i,id:m.id}));
-      }
-    });
+    try {
+      var mk = L.marker([m.lat,m.lng],{icon:pMarker(color)}).addTo(map);
+      allMarkerLatLngs.push([m.lat,m.lng]);
+      var popup = '<b>'+(m.name||'Parking')+'</b>';
+      if(m.rate) popup += '<br>'+m.rate;
+      if(m.address) popup += '<br><small>'+m.address+'</small>';
+      mk.bindPopup(popup);
+      mk.on('click',function(){
+        if(window.ReactNativeWebView){
+          window.ReactNativeWebView.postMessage(JSON.stringify({type:'markerClick',index:i,id:m.id}));
+        }
+      });
+    } catch(e) { /* skip bad marker */ }
   });
+
+  if(allMarkerLatLngs.length>0){
+    var bounds = L.latLngBounds(allMarkerLatLngs);
+    map.fitBounds(bounds.pad(0.2),{maxZoom:16});
+  }
 
   var routeLayer = null;
   if(cfg.route&&cfg.route.length>1){

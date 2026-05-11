@@ -1,8 +1,9 @@
 /* ============================================================
-   Park As You Desire — Driver Portal (portal.js)
+   Park As You Desire — Driver Portal  v20260511-C
    ============================================================ */
 
 'use strict';
+console.log('[PAYD] portal2.js v20260511-C loaded — OSM+geocode via server proxy');
 
 const API = '/api';
 
@@ -758,11 +759,9 @@ async function searchParking() {
       showToast('No parking found nearby — try a larger search radius.', 'warning');
     }
   } catch (err) {
-    showToast('OpenStreetMap unavailable — showing sample data.', 'warning');
-    allParkings = MOCK_PARKINGS.map(p => ({
-      ...p,
-      distance: calcDist(refLat, refLng, p.lat, p.lng)
-    }));
+    console.error('fetchOSMParkings failed:', err);
+    showToast(`OSM error: ${err.message} — check console for details.`, 'error');
+    allParkings = [];
   }
 
   applyPrioritySort(priority);
@@ -803,12 +802,9 @@ async function trackSearch() {
       showToast('No parking found nearby on OpenStreetMap. Try a larger radius.', 'warning');
     }
   } catch (err) {
-    console.warn('OSM fetch failed, using mock data:', err.message);
-    showToast('Could not reach OpenStreetMap — showing sample data.', 'warning');
-    allParkings = MOCK_PARKINGS.map(p => ({
-      ...p,
-      distance: calcDist(userLat, userLng, p.lat, p.lng)
-    }));
+    console.error('fetchOSMParkings (track) failed:', err);
+    showToast(`OSM error: ${err.message}`, 'error');
+    allParkings = [];
   }
 
   applyPrioritySort(priority);

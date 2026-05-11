@@ -218,7 +218,9 @@ function renderMapMarkers(list) {
     const color    = getTypeColor(p.type);
     const spotsNum = parseInt(p.availableSpots, 10);
     const available = isNaN(spotsNum) || spotsNum > 0;
-    const costStr  = p.costPerHour != null ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr` : 'Free';
+    const costStr  = p.costPerHour === 0 ? 'Free'
+      : p.costPerHour > 0 ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr`
+      : (p.feeInfo || 'Rate unknown');
     const spots    = p.availableSpots != null ? p.availableSpots : '?';
     const spotsLabel = spotsNum === 0
       ? '<span style="color:#e74c3c">Full</span>'
@@ -615,7 +617,9 @@ function convertOSMToParking(el, refLat, refLng) {
   }
 
   const capacity = parseInt(tags.capacity) || null;
-  const costPerHour = fee === 'no' ? 0 : fee === 'yes' ? null : null;
+  // Only use actual OSM rate data — never invent £ rates for foreign countries.
+  const costPerHour = fee === 'no' ? 0 : null;
+  const feeInfo = fee === 'no' ? 'Free' : fee === 'yes' ? 'Paid — check on arrival' : 'Rate unknown';
 
   // Address
   const addrParts = [
@@ -630,7 +634,7 @@ function convertOSMToParking(el, refLat, refLng) {
     tags.operator      ? `Operator: ${tags.operator}` : null,
     tags.opening_hours ? `Hours: ${tags.opening_hours}` : null,
     tags.maxstay       ? `Max stay: ${tags.maxstay}` : null,
-    fee === 'no'       ? 'Free parking' : fee === 'yes' ? 'Paid parking' : null,
+    feeInfo,
     tags.surface       ? `Surface: ${tags.surface}` : null,
   ].filter(Boolean);
 
@@ -643,6 +647,7 @@ function convertOSMToParking(el, refLat, refLng) {
     type: typeId,
     typeName,
     costPerHour,
+    feeInfo,
     costPerDay: null,
     totalSpots: capacity,
     availableSpots: capacity,
@@ -675,11 +680,12 @@ async function searchParking() {
   const btn = document.getElementById('searchBtn');
   setButtonLoading(btn, true, '🔍 Search Parking');
 
-  // Prefer destination coords; fall back to user GPS
-  let refLat = destLat !== null ? destLat : userLat;
-  let refLng = destLng !== null ? destLng : userLng;
+  // Step 1: use destination coords if available from autocomplete
+  let refLat = destLat;
+  let refLng = destLng;
 
-  // Geocode typed text when user didn't pick from autocomplete dropdown
+  // Step 2: geocode the typed destination text regardless of whether GPS was detected
+  // (GPS location is the FROM point, not the destination to search near)
   if (refLat === null) {
     const toText = document.getElementById('plannerTo')?.value?.trim();
     if (toText) {
@@ -689,6 +695,9 @@ async function searchParking() {
       } catch (_) {}
     }
   }
+
+  // Step 3: fall back to user GPS only if no destination was provided at all
+  if (refLat === null) { refLat = userLat; refLng = userLng; }
 
   if (refLat === null) {
     showToast('Please enter a destination or detect your location first.', 'warning');
@@ -862,9 +871,11 @@ function renderCard(p) {
     else if (spotsNum <= 5) spotsCls = 'spots-warn';
   }
 
-  const costHr  = p.costPerHour != null ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr` : '';
-  const costDay = p.costPerDay  != null && p.costPerDay > 0 ? `£${parseFloat(p.costPerDay).toFixed(2)}/day` : '';
-  const costStr = [costHr, costDay].filter(Boolean).join(' · ') || 'Free';
+  const costHr  = p.costPerHour === 0 ? 'Free'
+    : p.costPerHour > 0 ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr`
+    : (p.feeInfo || 'Rate unknown');
+  const costDay = p.costPerDay > 0 ? ` · £${parseFloat(p.costPerDay).toFixed(2)}/day` : '';
+  const costStr = costHr + costDay;
 
   const distBadge = p.distance != null
     ? `<span class="badge badge-dist">📍 ${formatDist(p.distance)}</span>` : '';

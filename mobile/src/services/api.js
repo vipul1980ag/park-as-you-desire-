@@ -1,8 +1,7 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
-// Base URL — LAN IP for physical device testing
-const BASE_URL = 'http://192.168.178.60:3002/api';
+const BASE_URL = 'https://parking.dnw-ai.com/api';
 
 // Haversine formula for local distance calculation (fallback)
 function haversineDistance(lat1, lng1, lat2, lng2) {

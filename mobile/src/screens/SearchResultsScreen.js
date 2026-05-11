@@ -52,7 +52,11 @@ export default function SearchResultsScreen({ navigation, route }) {
       let data = [];
       if (lat && lng) {
         const typeFilter = filter === 'private' ? 'private' : filter === 'public' ? 'surface' : '';
-        data = await fetchOSMParkings(lat, lng, 2000, typeFilter);
+        try {
+          data = await fetchOSMParkings(lat, lng, 2000, typeFilter);
+        } catch (_) {
+          data = [];
+        }
       }
       if (!data || data.length === 0) {
         data = await getParkings({ sortBy: filter === 'all' ? undefined : filter, lat, lng, search: search || undefined });

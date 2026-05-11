@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import LocationInput from '../components/LocationInput';
 import LeafletMapView from '../components/LeafletMapView';
-import { fetchOSMParkings, fetchOSMRoute, formatRate } from '../services/api';
+import { fetchOSMParkings, fetchOSMRoute, formatRate, searchPhoton } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import BrandFooter from '../components/BrandFooter';
 
@@ -226,7 +226,7 @@ export default function TrackLocationScreen({ navigation, route }) {
     }
   };
 
-  const handleFindParking = () => {
+  const handleFindParking = async () => {
     if (locationStatus !== 'detected' || !currentLocation) {
       Alert.alert('Location Not Ready', 'Please wait for your location to be detected.');
       return;
@@ -235,12 +235,19 @@ export default function TrackLocationScreen({ navigation, route }) {
       Alert.alert('Missing Destination', 'Please enter where you want to go.');
       return;
     }
+    let resolvedDest = destCoords;
+    if (!resolvedDest) {
+      try {
+        const hits = await searchPhoton(destination.trim());
+        if (hits.length > 0) resolvedDest = { lat: hits[0].lat, lng: hits[0].lng };
+      } catch (_) {}
+    }
     const selectedPriority = PRIORITY_OPTIONS.find((p) => p.id === priority);
     navigation.navigate('SearchResults', {
       from: locationLabel,
       to: destination.trim(),
-      lat: destCoords?.lat || currentLocation.lat,
-      lng: destCoords?.lng || currentLocation.lng,
+      lat: resolvedDest?.lat || currentLocation.lat,
+      lng: resolvedDest?.lng || currentLocation.lng,
       priority,
       sortBy: selectedPriority?.sortBy || 'distance',
     });

@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LocationInput from '../components/LocationInput';
+import { searchPhoton } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
 import BrandFooter from '../components/BrandFooter';
 
@@ -62,11 +63,29 @@ export default function ParkingPlannerScreen({ navigation, route }) {
   const [fromCoords, setFromCoords] = useState(null);
   const [toCoords, setToCoords] = useState(null);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!from.trim()) { Alert.alert('Missing Info', 'Please enter your starting location.'); return; }
     if (!to.trim()) { Alert.alert('Missing Info', 'Please enter your destination.'); return; }
+
+    let resolvedTo = toCoords;
+    let resolvedFrom = fromCoords;
+
+    // Geocode typed text if user didn't pick from autocomplete
+    if (!resolvedTo) {
+      try {
+        const hits = await searchPhoton(to.trim());
+        if (hits.length > 0) resolvedTo = { lat: hits[0].lat, lng: hits[0].lng };
+      } catch (_) {}
+    }
+    if (!resolvedFrom) {
+      try {
+        const hits = await searchPhoton(from.trim());
+        if (hits.length > 0) resolvedFrom = { lat: hits[0].lat, lng: hits[0].lng };
+      } catch (_) {}
+    }
+
     const sel = PRIORITY_OPTIONS.find(p => p.id === priority);
-    const center = toCoords || fromCoords;
+    const center = resolvedTo || resolvedFrom;
     navigation.navigate('SearchResults', {
       from: from.trim(), to: to.trim(),
       lat: center?.lat, lng: center?.lng,

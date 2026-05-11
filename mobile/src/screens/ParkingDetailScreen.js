@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,28 +18,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { getParkingById, fetchOSMRoute, formatRate } from '../services/api';
 import LeafletMapView from '../components/LeafletMapView';
+import { useTheme } from '../context/ThemeContext';
 import BrandFooter from '../components/BrandFooter';
 
-const T = {
-  bg: '#0d1b2a',
-  surface: '#142033',
-  surface2: '#1c2e44',
-  border: '#243350',
-  gold: '#f0a500',
-  goldLight: 'rgba(240,165,0,0.15)',
-  goldBorder: 'rgba(240,165,0,0.35)',
-  teal: '#0ab5a0',
-  tealLight: 'rgba(10,181,160,0.13)',
-  purple: '#a78bfa',
-  text: '#e2eaf4',
-  textMuted: '#6e92b5',
-  white: '#ffffff',
-  error: '#ff6b6b',
-  warning: '#f59e0b',
-  success: '#0ab5a0',
-};
 
 function SpotBadge({ availableSpots, totalSpots }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
   const ratio = totalSpots > 0 ? availableSpots / totalSpots : 1;
   const color = availableSpots === 0 ? T.error : ratio < 0.2 ? T.warning : T.success;
   const label = availableSpots === 0 ? 'Full' : availableSpots <= 3 ? 'Almost Full' : 'Available';
@@ -52,6 +37,8 @@ function SpotBadge({ availableSpots, totalSpots }) {
 }
 
 function InfoHeader({ navigation, title }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
   return (
     <View style={styles.header}>
       <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -64,6 +51,9 @@ function InfoHeader({ navigation, title }) {
 }
 
 export default function ParkingDetailScreen({ navigation, route }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const { parkingId, parking: passedParking, lat, lng } = route.params || {};
   const [parking, setParking] = useState(passedParking || null);
   const [loading, setLoading] = useState(!passedParking);
@@ -140,7 +130,7 @@ export default function ParkingDetailScreen({ navigation, route }) {
 
   if (loading) return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
       <InfoHeader navigation={navigation} title="Parking Details" />
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={T.gold} />
@@ -151,7 +141,7 @@ export default function ParkingDetailScreen({ navigation, route }) {
 
   if (!parking) return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
       <InfoHeader navigation={navigation} title="Parking Details" />
       <View style={styles.centered}>
         <Ionicons name="car-outline" size={60} color={T.textMuted} />
@@ -174,7 +164,7 @@ export default function ParkingDetailScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
       <InfoHeader navigation={navigation} title={parking.name} />
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -370,7 +360,7 @@ export default function ParkingDetailScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(T) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   header: {
     backgroundColor: T.surface, flexDirection: 'row', alignItems: 'center',
@@ -448,7 +438,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, backgroundColor: T.teal, paddingVertical: 12, borderRadius: 12,
   },
-  openMapBtnText: { color: T.bg, fontSize: 14, fontWeight: '800' },
+  openMapBtnText: { color: '#ffffff', fontSize: 14, fontWeight: '800' },
 
   daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   dayChip: {
@@ -484,5 +474,6 @@ const styles = StyleSheet.create({
     shadowColor: T.gold, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35, shadowRadius: 10, elevation: 5,
   },
-  bookBtnText: { color: T.bg, fontWeight: '900', fontSize: 13 },
+  bookBtnText: { color: '#ffffff', fontWeight: '900', fontSize: 13 },
 });
+}

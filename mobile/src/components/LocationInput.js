@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useRef, useCallback } from 'react';
 import {
   View,
   TextInput,
@@ -11,32 +11,25 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../context/ThemeContext';
 import { searchPhoton } from '../services/api';
 
-const T = {
-  surface: '#142033',
-  surface2: '#1c2e44',
-  border: '#243350',
-  gold: '#f0a500',
-  teal: '#0ab5a0',
-  text: '#e2eaf4',
-  textMuted: '#6e92b5',
-  bg: '#0d1b2a',
-};
-
 export default function LocationInput({
-  label,
   value,
   onChangeText,
   onLocationSelect,
-  placeholder = 'Enter location',
+  placeholder,
   icon = 'location-outline',
-  showGps = false,
-  onGpsPress,
-  gpsLoading = false,
+  label,
   editable = true,
+  showGps = false,
+  gpsLoading = false,
+  onGpsPress,
   style,
 }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const [suggestions, setSuggestions] = useState([]);
   const [loadingSugg, setLoadingSugg] = useState(false);
   const debounceRef = useRef(null);
@@ -134,7 +127,7 @@ export default function LocationInput({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(T) { return StyleSheet.create({
   wrapper: { marginBottom: 14 },
   label: {
     fontSize: 12, fontWeight: '700', color: T.textMuted,
@@ -176,3 +169,4 @@ const styles = StyleSheet.create({
   suggBorder: { borderBottomWidth: 1, borderBottomColor: T.border },
   suggText: { flex: 1, fontSize: 13, color: T.text, lineHeight: 18 },
 });
+}

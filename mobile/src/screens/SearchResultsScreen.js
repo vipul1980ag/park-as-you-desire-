@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,21 +18,9 @@ import { Ionicons } from '@expo/vector-icons';
 import ParkingCard from '../components/ParkingCard';
 import LeafletMapView from '../components/LeafletMapView';
 import { getParkings, fetchOSMParkings } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 import BrandFooter from '../components/BrandFooter';
 
-const T = {
-  bg: '#0d1b2a',
-  surface: '#142033',
-  surface2: '#1c2e44',
-  border: '#243350',
-  gold: '#f0a500',
-  goldLight: 'rgba(240,165,0,0.15)',
-  teal: '#0ab5a0',
-  text: '#e2eaf4',
-  textMuted: '#6e92b5',
-  white: '#ffffff',
-  error: '#ff6b6b',
-};
 
 const FILTER_CHIPS = [
   { id: 'all', label: 'All', icon: 'grid-outline' },
@@ -43,6 +31,9 @@ const FILTER_CHIPS = [
 ];
 
 export default function SearchResultsScreen({ navigation, route }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const {
     from = '', to = '', lat, lng,
     sortBy: initialSortBy = 'distance',
@@ -166,7 +157,7 @@ export default function SearchResultsScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -229,7 +220,7 @@ export default function SearchResultsScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(T) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   header: {
     backgroundColor: T.surface, flexDirection: 'row', alignItems: 'center',
@@ -280,7 +271,7 @@ const styles = StyleSheet.create({
   },
   chipActive: { backgroundColor: T.gold, borderColor: T.gold },
   chipText: { fontSize: 12, fontWeight: '600', color: T.textMuted },
-  chipTextActive: { color: T.bg },
+  chipTextActive: { color: '#ffffff' },
 
   countRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -306,5 +297,6 @@ const styles = StyleSheet.create({
     marginTop: 8, paddingHorizontal: 28, paddingVertical: 12,
     backgroundColor: T.gold, borderRadius: 16,
   },
-  resetBtnText: { color: T.bg, fontWeight: '800', fontSize: 14 },
+  resetBtnText: { color: '#ffffff', fontWeight: '800', fontSize: 14 },
 });
+}

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -14,22 +14,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import LocationInput from '../components/LocationInput';
+import { useTheme } from '../context/ThemeContext';
 import BrandFooter from '../components/BrandFooter';
 
-const T = {
-  bg: '#0d1b2a',
-  surface: '#142033',
-  surface2: '#1c2e44',
-  border: '#243350',
-  gold: '#f0a500',
-  goldLight: 'rgba(240,165,0,0.15)',
-  goldBorder: 'rgba(240,165,0,0.35)',
-  teal: '#0ab5a0',
-  tealLight: 'rgba(10,181,160,0.13)',
-  text: '#e2eaf4',
-  textMuted: '#6e92b5',
-  white: '#ffffff',
-};
 
 const PRIORITY_OPTIONS = [
   {
@@ -38,7 +25,7 @@ const PRIORITY_OPTIONS = [
     sub: 'Minimise your walk from parking to destination',
     icon: 'locate',
     sortBy: 'distance',
-    color: T.teal,
+    color: '#0ab5a0',
   },
   {
     id: 'type',
@@ -54,7 +41,7 @@ const PRIORITY_OPTIONS = [
     sub: 'Cheapest hourly or daily rate first',
     icon: 'cash',
     sortBy: 'cost',
-    color: T.gold,
+    color: '#f0a500',
   },
 ];
 
@@ -64,7 +51,10 @@ function formatTime(d) {
   return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 }
 
-export default function ParkingPlannerScreen({ navigation }) {
+export default function ParkingPlannerScreen({ navigation, route }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [departDate, setDepartDate] = useState(new Date());
@@ -91,7 +81,7 @@ export default function ParkingPlannerScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" backgroundColor={T.bg} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -237,7 +227,7 @@ export default function ParkingPlannerScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(T) { return StyleSheet.create({
   safe: { flex: 1, backgroundColor: T.bg },
   header: {
     flexDirection: 'row', alignItems: 'center',
@@ -261,7 +251,7 @@ const styles = StyleSheet.create({
     borderRadius: 8, paddingHorizontal: 12, paddingVertical: 5,
     marginBottom: 10,
   },
-  sectionTagText: { color: T.bg, fontWeight: '900', fontSize: 12, letterSpacing: 1.5 },
+  sectionTagText: { color: '#ffffff', fontWeight: '900', fontSize: 12, letterSpacing: 1.5 },
 
   card: {
     backgroundColor: T.surface, borderRadius: 18, padding: 18,
@@ -338,5 +328,6 @@ const styles = StyleSheet.create({
     shadowColor: T.gold, shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.35, shadowRadius: 12, elevation: 6,
   },
-  searchBtnText: { fontSize: 17, fontWeight: '900', color: T.bg, letterSpacing: 0.5 },
+  searchBtnText: { fontSize: 17, fontWeight: '900', color: '#ffffff', letterSpacing: 0.5 },
 });
+}

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,21 +21,9 @@ import * as Location from 'expo-location';
 import LocationInput from '../components/LocationInput';
 import LeafletMapView from '../components/LeafletMapView';
 import { fetchOSMParkings, fetchOSMRoute, formatRate } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 import BrandFooter from '../components/BrandFooter';
 
-const COLORS = {
-  primary: '#142033',
-  accent: '#f0a500',
-  background: '#0d1b2a',
-  white: '#e2eaf4',
-  textDark: '#e2eaf4',
-  textSecondary: '#6e92b5',
-  selected: '#1c2e44',
-  border: '#243350',
-  success: '#0ab5a0',
-  error: '#ff6b6b',
-  live: '#ff6b6b',
-};
 
 const PRIORITY_OPTIONS = [
   { id: 'distance', label: 'Nearest Parking', icon: 'locate', sortBy: 'distance' },
@@ -54,7 +42,10 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-export default function TrackLocationScreen({ navigation }) {
+export default function TrackLocationScreen({ navigation, route }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const [locationStatus, setLocationStatus] = useState('idle');
   const [currentLocation, setCurrentLocation] = useState(null);
   const [locationLabel, setLocationLabel] = useState('');
@@ -71,7 +62,7 @@ export default function TrackLocationScreen({ navigation }) {
   const suggestionCooldownRef = useRef(false);
 
   // Suggestion banner
-  const [suggestion, setSuggestion] = useState(null); // {parking, distance, eta, route}
+  const [suggestion, setSuggestion] = useState(null);
   const bannerAnim = useRef(new Animated.Value(0)).current;
 
   // Map
@@ -106,7 +97,6 @@ export default function TrackLocationScreen({ navigation }) {
       lastPosRef.current = { lat: latitude, lng: longitude, ts: Date.now() };
     } catch (_) {
       setLocationStatus('error');
-      // Demo fallback
       const lat = 51.5074, lng = -0.1278;
       setCurrentLocation({ lat, lng });
       setLocationLabel('Demo Location (London, UK)');
@@ -115,7 +105,6 @@ export default function TrackLocationScreen({ navigation }) {
     }
   };
 
-  // ---- LIVE TRACKING ----
   const startLiveTracking = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
@@ -149,7 +138,6 @@ export default function TrackLocationScreen({ navigation }) {
     const prev = lastPosRef.current;
     let prevSpeed = lastSpeedRef.current;
 
-    // Estimate speed from distance/time if no GPS speed
     if (speed == null && prev) {
       const dt = (now - prev.ts) / 1000;
       if (dt > 0) {
@@ -161,11 +149,9 @@ export default function TrackLocationScreen({ navigation }) {
     lastPosRef.current = { lat, lng, ts: now };
     lastSpeedRef.current = speedKmh || prevSpeed;
 
-    // Update map
     mapRef.current?.updateUserPosition(lat, lng);
     setCurrentLocation({ lat, lng });
 
-    // Check triggers
     if (!suggestionCooldownRef.current) {
       const distToDest = destCoords ? haversineKm(lat, lng, destCoords.lat, destCoords.lng) * 1000 : null;
       const braking = prevSpeed > 25 && speedKmh < 10;
@@ -180,7 +166,7 @@ export default function TrackLocationScreen({ navigation }) {
 
   const triggerParkingSuggestion = async (lat, lng) => {
     suggestionCooldownRef.current = true;
-    setTimeout(() => { suggestionCooldownRef.current = false; }, 120000); // 2 min cooldown
+    setTimeout(() => { suggestionCooldownRef.current = false; }, 120000);
 
     try {
       const parkings = await fetchOSMParkings(lat, lng, 800);
@@ -267,11 +253,11 @@ export default function TrackLocationScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Track My Location</Text>
         <View style={{ width: 36 }} />
@@ -295,7 +281,7 @@ export default function TrackLocationScreen({ navigation }) {
           />
         ) : (
           <View style={styles.mapPlaceholder}>
-            <ActivityIndicator color={COLORS.primary} />
+            <ActivityIndicator color={T.teal} />
             <Text style={styles.mapPlaceholderText}>Waiting for GPS…</Text>
           </View>
         )}
@@ -320,7 +306,7 @@ export default function TrackLocationScreen({ navigation }) {
                 <Text style={styles.suggestionSubtitle} numberOfLines={1}>{suggestion.parking.name}</Text>
               </View>
               <TouchableOpacity onPress={hideBanner} style={styles.suggestionClose}>
-                <Ionicons name="close" size={18} color={COLORS.textSecondary} />
+                <Ionicons name="close" size={18} color={T.textMuted} />
               </TouchableOpacity>
             </View>
 
@@ -360,16 +346,16 @@ export default function TrackLocationScreen({ navigation }) {
         {/* Location card */}
         <View style={styles.locationCard}>
           <View style={styles.locationCardHeader}>
-            <Ionicons name="navigate-circle" size={24} color={COLORS.primary} />
+            <Ionicons name="navigate-circle" size={24} color={T.teal} />
             <Text style={styles.locationCardTitle}>Your Current Location</Text>
             <TouchableOpacity onPress={detectLocation} style={styles.refreshBtn}>
-              <Ionicons name="refresh" size={18} color={COLORS.primary} />
+              <Ionicons name="refresh" size={18} color={T.teal} />
             </TouchableOpacity>
           </View>
 
           {locationStatus === 'detecting' && (
             <View style={styles.detectingRow}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
+              <ActivityIndicator size="small" color={T.teal} />
               <Text style={styles.detectingText}>Detecting your location...</Text>
             </View>
           )}
@@ -385,20 +371,20 @@ export default function TrackLocationScreen({ navigation }) {
                   </Text>
                 )}
               </View>
-              <Ionicons name="checkmark-circle" size={22} color={COLORS.success} />
+              <Ionicons name="checkmark-circle" size={22} color={T.success} />
             </View>
           )}
 
           {locationStatus === 'error' && (
             <View style={styles.errorRow}>
-              <Ionicons name="warning" size={18} color={COLORS.error} />
+              <Ionicons name="warning" size={18} color={T.error} />
               <Text style={styles.errorText}>Could not detect location. Tap refresh to retry.</Text>
             </View>
           )}
 
           {locationStatus === 'idle' && (
             <TouchableOpacity style={styles.detectBtn} onPress={detectLocation}>
-              <Ionicons name="navigate" size={16} color={COLORS.white} />
+              <Ionicons name="navigate" size={16} color="#ffffff" />
               <Text style={styles.detectBtnText}>Detect My Location</Text>
             </TouchableOpacity>
           )}
@@ -440,7 +426,7 @@ export default function TrackLocationScreen({ navigation }) {
               activeOpacity={0.75}
             >
               <View style={[styles.priorityIconWrap, priority === opt.id && styles.priorityIconWrapSelected]}>
-                <Ionicons name={opt.icon} size={20} color={priority === opt.id ? COLORS.white : COLORS.primary} />
+                <Ionicons name={opt.icon} size={20} color={priority === opt.id ? '#ffffff' : T.teal} />
               </View>
               <Text style={[styles.priorityLabel, priority === opt.id && styles.priorityLabelSelected]}>
                 {opt.label}
@@ -464,7 +450,7 @@ export default function TrackLocationScreen({ navigation }) {
           activeOpacity={0.85}
           disabled={locationStatus !== 'detected'}
         >
-          <Ionicons name="search" size={20} color={COLORS.primary} />
+          <Ionicons name="search" size={20} color={T.teal} />
           <Text style={styles.findBtnText}>Find Parking Near Me</Text>
         </TouchableOpacity>
       </View>
@@ -472,149 +458,149 @@ export default function TrackLocationScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.background },
+function createStyles(T) { return StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: T.bg },
   header: {
-    backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.teal, flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14,
   },
   backBtn: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.white, letterSpacing: 0.5 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#ffffff', letterSpacing: 0.5 },
 
-  // Map
-  mapContainer: { height: 220, position: 'relative', borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#e8f0fe', gap: 8 },
-  mapPlaceholderText: { fontSize: 13, color: COLORS.textSecondary },
+  mapContainer: { height: 220, position: 'relative', borderBottomWidth: 1, borderBottomColor: T.border },
+  mapPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.surface2, gap: 8 },
+  mapPlaceholderText: { fontSize: 13, color: T.textMuted },
 
-  // Live P button
   livePBtn: {
     position: 'absolute', bottom: 12, right: 12,
     width: 48, height: 48, borderRadius: 24,
-    backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: COLORS.primary,
+    backgroundColor: T.surface, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: T.teal,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5,
   },
-  livePBtnActive: { backgroundColor: COLORS.live, borderColor: COLORS.live },
-  livePText: { fontSize: 18, fontWeight: '900', color: COLORS.primary },
-  livePTextActive: { color: COLORS.white },
+  livePBtnActive: { backgroundColor: '#e53935', borderColor: '#e53935' },
+  livePText: { fontSize: 18, fontWeight: '900', color: T.teal },
+  livePTextActive: { color: '#ffffff' },
   liveDot: {
     position: 'absolute', top: 4, right: 4,
     width: 10, height: 10, borderRadius: 5,
-    backgroundColor: COLORS.white, borderWidth: 2, borderColor: COLORS.live,
+    backgroundColor: '#ffffff', borderWidth: 2, borderColor: '#e53935',
   },
 
-  // Suggestion banner
   suggestionBanner: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: COLORS.white, borderTopLeftRadius: 16, borderTopRightRadius: 16,
+    backgroundColor: T.surface, borderTopLeftRadius: 16, borderTopRightRadius: 16,
     padding: 14, elevation: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.15, shadowRadius: 8,
   },
   suggestionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 },
   suggestionIcon: { fontSize: 24 },
   suggestionTitleWrap: { flex: 1 },
-  suggestionTitle: { fontSize: 13, fontWeight: '800', color: COLORS.primary },
-  suggestionSubtitle: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  suggestionTitle: { fontSize: 13, fontWeight: '800', color: T.teal },
+  suggestionSubtitle: { fontSize: 12, color: T.textMuted, marginTop: 2 },
   suggestionClose: { padding: 4 },
   suggestionGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 10 },
   suggestionCell: {
-    flex: 1, minWidth: '45%', backgroundColor: COLORS.background,
+    flex: 1, minWidth: '45%', backgroundColor: T.surface2,
     borderRadius: 8, padding: 8,
   },
-  cellLabel: { fontSize: 10, color: COLORS.textSecondary, fontWeight: '600', marginBottom: 2 },
-  cellValue: { fontSize: 13, fontWeight: '700', color: COLORS.textDark },
+  cellLabel: { fontSize: 10, color: T.textMuted, fontWeight: '600', marginBottom: 2 },
+  cellValue: { fontSize: 13, fontWeight: '700', color: T.text },
   suggestionActions: { flexDirection: 'row', gap: 10 },
   navBtn: {
-    flex: 1, backgroundColor: COLORS.primary, borderRadius: 10, paddingVertical: 10,
+    flex: 1, backgroundColor: T.teal, borderRadius: 10, paddingVertical: 10,
     alignItems: 'center', justifyContent: 'center',
   },
-  navBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 13 },
+  navBtnText: { color: '#ffffff', fontWeight: '700', fontSize: 13 },
   viewAllBtn: {
-    flex: 1, backgroundColor: COLORS.accent, borderRadius: 10, paddingVertical: 10,
+    flex: 1, backgroundColor: T.goldLight, borderRadius: 10, paddingVertical: 10,
     alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: T.goldBorder,
   },
-  viewAllBtnText: { color: COLORS.primary, fontWeight: '700', fontSize: 13 },
+  viewAllBtnText: { color: T.gold, fontWeight: '700', fontSize: 13 },
 
-  // Form
   scroll: { flex: 1 },
   locationCard: {
-    backgroundColor: COLORS.white, margin: 16, borderRadius: 14, padding: 16,
+    backgroundColor: T.surface, margin: 16, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: T.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2,
   },
   locationCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 8 },
-  locationCardTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: COLORS.primary },
+  locationCardTitle: { flex: 1, fontSize: 15, fontWeight: '700', color: T.teal },
   refreshBtn: {
-    padding: 6, borderRadius: 8, backgroundColor: COLORS.background,
-    borderWidth: 1, borderColor: COLORS.border,
+    padding: 6, borderRadius: 8, backgroundColor: T.surface2,
+    borderWidth: 1, borderColor: T.border,
   },
   detectingRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
-  detectingText: { fontSize: 14, color: COLORS.textSecondary, fontStyle: 'italic' },
+  detectingText: { fontSize: 14, color: T.textMuted, fontStyle: 'italic' },
   detectedRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#f0f8f0', borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: '#c8e6c9',
+    backgroundColor: 'rgba(10,181,160,0.1)', borderRadius: 10, padding: 12,
+    borderWidth: 1, borderColor: 'rgba(10,181,160,0.3)',
   },
-  detectedDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: COLORS.success },
+  detectedDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: T.success },
   detectedInfo: { flex: 1 },
-  detectedLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textDark },
-  coordsText: { fontSize: 11, color: COLORS.textSecondary, marginTop: 2, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  detectedLabel: { fontSize: 13, fontWeight: '600', color: T.text },
+  coordsText: { fontSize: 11, color: T.textMuted, marginTop: 2, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   errorRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fff3f3', borderRadius: 10, padding: 12,
-    borderWidth: 1, borderColor: '#ffcdd2',
+    backgroundColor: 'rgba(255,107,107,0.1)', borderRadius: 10, padding: 12,
+    borderWidth: 1, borderColor: 'rgba(255,107,107,0.3)',
   },
-  errorText: { flex: 1, fontSize: 13, color: COLORS.error },
+  errorText: { flex: 1, fontSize: 13, color: T.error },
   detectBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.primary, borderRadius: 10, paddingVertical: 12, gap: 8,
+    backgroundColor: T.teal, borderRadius: 10, paddingVertical: 12, gap: 8,
   },
-  detectBtnText: { color: COLORS.white, fontWeight: '600', fontSize: 14 },
+  detectBtnText: { color: '#ffffff', fontWeight: '600', fontSize: 14 },
   liveTrackingBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#fff5f5', borderRadius: 8, padding: 10, marginTop: 10,
-    borderWidth: 1, borderColor: '#ffcdd2',
+    backgroundColor: 'rgba(229,57,53,0.1)', borderRadius: 8, padding: 10, marginTop: 10,
+    borderWidth: 1, borderColor: 'rgba(229,57,53,0.3)',
   },
-  liveTrackingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.live },
-  liveTrackingText: { flex: 1, fontSize: 11, color: COLORS.live, fontWeight: '600' },
+  liveTrackingDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e53935' },
+  liveTrackingText: { flex: 1, fontSize: 11, color: '#e53935', fontWeight: '600' },
 
   section: {
-    backgroundColor: COLORS.white, marginHorizontal: 16, marginBottom: 16, borderRadius: 14, padding: 16,
+    backgroundColor: T.surface, marginHorizontal: 16, marginBottom: 16, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: T.border,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 14, gap: 10 },
-  sectionBadge: { backgroundColor: COLORS.primary, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
-  sectionBadgeText: { color: COLORS.white, fontWeight: '800', fontSize: 12, letterSpacing: 1.5 },
-  sectionSubLabel: { fontSize: 13, color: COLORS.textSecondary },
+  sectionBadge: { backgroundColor: T.teal, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 4 },
+  sectionBadgeText: { color: '#ffffff', fontWeight: '800', fontSize: 12, letterSpacing: 1.5 },
+  sectionSubLabel: { fontSize: 13, color: T.textMuted },
   priorityRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12,
-    borderRadius: 10, marginBottom: 8, borderWidth: 1.5, borderColor: COLORS.border,
-    backgroundColor: COLORS.white, gap: 12,
+    borderRadius: 10, marginBottom: 8, borderWidth: 1.5, borderColor: T.border,
+    backgroundColor: T.surface2, gap: 12,
   },
-  priorityRowSelected: { borderColor: COLORS.primary, backgroundColor: COLORS.selected },
+  priorityRowSelected: { borderColor: T.teal, backgroundColor: T.tealLight },
   priorityIconWrap: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: '#e8f0fe',
+    width: 38, height: 38, borderRadius: 19, backgroundColor: T.tealLight,
     alignItems: 'center', justifyContent: 'center',
   },
-  priorityIconWrapSelected: { backgroundColor: COLORS.primary },
-  priorityLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.textDark },
-  priorityLabelSelected: { color: COLORS.primary, fontWeight: '700' },
+  priorityIconWrapSelected: { backgroundColor: T.teal },
+  priorityLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: T.text },
+  priorityLabelSelected: { color: T.teal, fontWeight: '700' },
   radioOuter: {
-    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: COLORS.border,
+    width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: T.border,
     alignItems: 'center', justifyContent: 'center',
   },
-  radioOuterSelected: { borderColor: COLORS.primary },
-  radioInner: { width: 11, height: 11, borderRadius: 5.5, backgroundColor: COLORS.primary },
+  radioOuterSelected: { borderColor: T.teal },
+  radioInner: { width: 11, height: 11, borderRadius: 5.5, backgroundColor: T.teal },
 
   btnContainer: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    padding: 16, backgroundColor: COLORS.white,
-    borderTopWidth: 1, borderTopColor: '#e8edf2',
+    padding: 16, backgroundColor: T.surface,
+    borderTopWidth: 1, borderTopColor: T.border,
   },
   findBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.accent, borderRadius: 14, paddingVertical: 15, gap: 10,
-    shadowColor: COLORS.accent, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+    backgroundColor: T.gold, borderRadius: 14, paddingVertical: 15, gap: 10,
+    shadowColor: T.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  findBtnDisabled: { backgroundColor: '#d0d8e0', shadowOpacity: 0, elevation: 0 },
-  findBtnText: { fontSize: 16, fontWeight: '800', color: COLORS.primary, letterSpacing: 0.5 },
+  findBtnDisabled: { backgroundColor: T.surface2, shadowOpacity: 0, elevation: 0 },
+  findBtnText: { fontSize: 16, fontWeight: '800', color: T.teal, letterSpacing: 0.5 },
 });
+}

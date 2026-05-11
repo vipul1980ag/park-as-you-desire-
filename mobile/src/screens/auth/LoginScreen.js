@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -17,21 +17,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { loginUser } from '../../services/api';
 
-const C = {
-  bg: '#0d1b2a',
-  surface: '#142033',
-  surface2: '#1c2e44',
-  border: '#243350',
-  gold: '#f0a500',
-  teal: '#0ab5a0',
-  text: '#e2eaf4',
-  textMuted: '#6e92b5',
-  error: '#f87171',
-};
-
 export default function LoginScreen({ navigation }) {
+  const { T } = useTheme();
+  const C = T;
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,7 +43,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       const userData = await loginUser({ email: trimmedEmail, password: trimmedPassword });
-      await login(userData); // saves to SecureStore + updates context → auto-navigates
+      await login(userData);
     } catch (err) {
       Alert.alert('Login failed', err.message || 'Invalid email or password.');
     } finally {
@@ -129,7 +122,7 @@ export default function LoginScreen({ navigation }) {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={C.bg} size="small" />
+                <ActivityIndicator color="#ffffff" size="small" />
               ) : (
                 <Text style={styles.btnText}>Sign In</Text>
               )}
@@ -159,8 +152,8 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: C.bg },
+function createStyles(T) { return StyleSheet.create({
+  safe: { flex: 1, backgroundColor: T.bg },
   scroll: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -173,32 +166,32 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: C.surface2,
+    backgroundColor: T.surface2,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: C.gold,
+    borderColor: T.gold,
   },
-  appName: { fontSize: 22, fontWeight: '900', color: C.text, letterSpacing: 0.3 },
-  tagline: { fontSize: 13, color: C.textMuted },
+  appName: { fontSize: 22, fontWeight: '900', color: T.text, letterSpacing: 0.3 },
+  tagline: { fontSize: 13, color: T.textMuted },
   card: {
-    backgroundColor: C.surface,
+    backgroundColor: T.surface,
     borderRadius: 20,
     padding: 24,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: T.border,
     gap: 6,
   },
-  cardTitle: { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 2 },
-  cardSub: { fontSize: 13, color: C.textMuted, marginBottom: 10 },
-  label: { fontSize: 12, color: C.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 10 },
+  cardTitle: { fontSize: 20, fontWeight: '800', color: T.text, marginBottom: 2 },
+  cardSub: { fontSize: 13, color: T.textMuted, marginBottom: 10 },
+  label: { fontSize: 12, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 10 },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: C.surface2,
+    backgroundColor: T.surface2,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: T.border,
     paddingHorizontal: 12,
     marginTop: 6,
   },
@@ -206,26 +199,26 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: 48,
-    color: C.text,
+    color: T.text,
     fontSize: 15,
   },
   eyeBtn: { padding: 6 },
   btn: {
-    backgroundColor: C.gold,
+    backgroundColor: T.gold,
     borderRadius: 14,
     paddingVertical: 15,
     alignItems: 'center',
     marginTop: 20,
   },
   btnDisabled: { opacity: 0.6 },
-  btnText: { fontSize: 16, fontWeight: '800', color: C.bg },
+  btnText: { fontSize: 16, fontWeight: '800', color: '#ffffff' },
   registerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 14,
   },
-  registerText: { fontSize: 13, color: C.textMuted },
-  registerLink: { fontSize: 13, color: C.gold, fontWeight: '700' },
+  registerText: { fontSize: 13, color: T.textMuted },
+  registerLink: { fontSize: 13, color: T.gold, fontWeight: '700' },
   backBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -233,5 +226,6 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 8,
   },
-  backText: { fontSize: 13, color: C.textMuted },
+  backText: { fontSize: 13, color: T.textMuted },
 });
+}

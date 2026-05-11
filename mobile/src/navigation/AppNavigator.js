@@ -7,6 +7,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
 import { AuthProvider, useAuth } from '../context/AuthContext';
+import { ThemeProvider, useTheme } from '../context/ThemeContext';
 import { ssoLogin } from '../services/api';
 
 // Driver screens
@@ -30,16 +31,8 @@ import ParkBotScreen from '../screens/ParkBotScreen';
 
 const Stack = createStackNavigator();
 
-const SCREEN_OPTIONS = {
-  headerShown: false,
-  cardStyle: { backgroundColor: '#0d1b2a' },
-  gestureEnabled: true,
-  gestureDirection: 'horizontal',
-};
-
-const T = { bg: '#0d1b2a', gold: '#f0a500', text: '#e2eaf4', textMuted: '#6e92b5' };
-
 function SSOLoadingScreen() {
+  const { T } = useTheme();
   return (
     <View style={{ flex: 1, backgroundColor: T.bg, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
       <ActivityIndicator size="large" color={T.gold} />
@@ -50,10 +43,17 @@ function SSOLoadingScreen() {
 
 function AppScreens() {
   const { user, loading, login } = useAuth();
+  const { T } = useTheme();
   const [ssoLoading, setSsoLoading] = useState(false);
   const ssoAttempted = useRef(false);
 
-  // Parse incoming parkingapp:// deep link
+  const screenOptions = {
+    headerShown: false,
+    cardStyle: { backgroundColor: T.bg },
+    gestureEnabled: true,
+    gestureDirection: 'horizontal',
+  };
+
   function parseParkingLink(url) {
     if (!url || !url.startsWith('parkingapp://')) return null;
     const withoutScheme = url.replace('parkingapp://', '');
@@ -73,7 +73,7 @@ function AppScreens() {
     const parsed = parseParkingLink(url);
     if (!parsed || parsed.path !== 'sso') return false;
     const { jwt, error } = parsed.params;
-    if (error || !jwt) return false; // Safe2Go not signed in — fall through to Login
+    if (error || !jwt) return false;
 
     setSsoLoading(true);
     try {
@@ -87,19 +87,17 @@ function AppScreens() {
     return true;
   }
 
-  // Auto-trigger SSO from Safe2Go when not logged in
   async function attemptSafeGoSSO() {
     if (ssoAttempted.current) return;
     ssoAttempted.current = true;
 
     const ssoUrl = 'safe2go://sso?return=parkingapp://sso';
     const canOpen = await Linking.canOpenURL(ssoUrl).catch(() => false);
-    if (!canOpen) return; // Safe2Go not installed
+    if (!canOpen) return;
 
     setSsoLoading(true);
     try {
       await Linking.openURL(ssoUrl);
-      // Wait up to 8s for Safe2Go to respond via deep link
       await new Promise((resolve) => setTimeout(resolve, 8000));
     } catch {
       // ignore
@@ -111,17 +109,14 @@ function AppScreens() {
   useEffect(() => {
     if (loading) return;
 
-    // Listen for incoming deep links (SSO response from Safe2Go)
     const sub = Linking.addEventListener('url', ({ url }) => {
       handleSSOResponse(url);
     });
 
-    // Check initial URL (app was closed and opened via deep link)
     Linking.getInitialURL().then((url) => {
       if (url) handleSSOResponse(url);
     }).catch(() => {});
 
-    // If not logged in, try to get a token from Safe2Go automatically
     if (!user) {
       attemptSafeGoSSO();
     }
@@ -134,26 +129,21 @@ function AppScreens() {
   }
 
   return (
-    <Stack.Navigator screenOptions={SCREEN_OPTIONS} initialRouteName="Home">
-      {/* Driver Flow — always accessible */}
+    <Stack.Navigator screenOptions={screenOptions} initialRouteName="Home">
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="ParkingPlanner" component={ParkingPlannerScreen} />
       <Stack.Screen name="TrackLocation" component={TrackLocationScreen} />
       <Stack.Screen name="Priority" component={PriorityScreen} />
       <Stack.Screen name="SearchResults" component={SearchResultsScreen} />
       <Stack.Screen name="ParkingDetail" component={ParkingDetailScreen} />
-
-      {/* AI */}
       <Stack.Screen name="ParkBot" component={ParkBotScreen} />
 
-      {/* Auth screens — shown when not logged in */}
       {!user ? (
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
         </>
       ) : (
-        /* Owner screens — only accessible when logged in */
         <>
           <Stack.Screen name="OwnerHome" component={OwnerHomeScreen} />
           <Stack.Screen name="ListParking" component={ListParkingScreen} />
@@ -165,10 +155,12 @@ function AppScreens() {
 
 export default function AppNavigator() {
   return (
-    <AuthProvider>
-      <NavigationContainer>
-        <AppScreens />
-      </NavigationContainer>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <NavigationContainer>
+          <AppScreens />
+        </NavigationContainer>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

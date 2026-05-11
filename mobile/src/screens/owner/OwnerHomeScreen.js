@@ -1,4 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+// Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
+
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,25 +16,13 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { getOwnerParkings, getOwnerStats, updateParking } from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
-const COLORS = {
-  primary: '#1a3c5e',
-  accent: '#f0a500',
-  background: '#f5f5f5',
-  white: '#ffffff',
-  textDark: '#333333',
-  textSecondary: '#666666',
-  border: '#d0d8e0',
-  success: '#2e7d32',
-  successBg: '#e8f5e9',
-  warning: '#e65100',
-  warningBg: '#fff3e0',
-  error: '#c62828',
-  errorBg: '#ffebee',
-};
 
 function StatCard({ icon, value, label, color }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
   return (
     <View style={[styles.statCard, { borderTopColor: color }]}>
       <Ionicons name={icon} size={22} color={color} />
@@ -42,6 +33,8 @@ function StatCard({ icon, value, label, color }) {
 }
 
 function OwnerParkingCard({ parking, onEdit, onToggle }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
   const isActive = parking.availableSpots > 0;
 
   return (
@@ -51,24 +44,13 @@ function OwnerParkingCard({ parking, onEdit, onToggle }) {
           <Text style={styles.parkingCardName} numberOfLines={1}>
             {parking.name}
           </Text>
-          <View
-            style={[
-              styles.activeIndicator,
-              { backgroundColor: isActive ? COLORS.successBg : COLORS.errorBg },
-            ]}
-          >
-            <View
-              style={[
-                styles.activeDot,
-                { backgroundColor: isActive ? COLORS.success : COLORS.error },
-              ]}
-            />
-            <Text
-              style={[
-                styles.activeText,
-                { color: isActive ? COLORS.success : COLORS.error },
-              ]}
-            >
+          <View style={[styles.activeIndicator, {
+            backgroundColor: isActive ? 'rgba(10,181,160,0.15)' : 'rgba(255,107,107,0.15)',
+          }]}>
+            <View style={[styles.activeDot, {
+              backgroundColor: isActive ? T.success : T.error,
+            }]} />
+            <Text style={[styles.activeText, { color: isActive ? T.success : T.error }]}>
               {isActive ? 'Active' : 'Full'}
             </Text>
           </View>
@@ -86,11 +68,11 @@ function OwnerParkingCard({ parking, onEdit, onToggle }) {
         </View>
         <View style={styles.parkingStatItem}>
           <Text style={styles.parkingStatLabel}>Per Hour</Text>
-          <Text style={styles.parkingStatValue}>${parking.costPerHour}</Text>
+          <Text style={styles.parkingStatValue}>£{parking.costPerHour}</Text>
         </View>
         <View style={styles.parkingStatItem}>
           <Text style={styles.parkingStatLabel}>Per Day</Text>
-          <Text style={styles.parkingStatValue}>${parking.costPerDay}</Text>
+          <Text style={styles.parkingStatValue}>£{parking.costPerDay}</Text>
         </View>
         <View style={styles.parkingStatItem}>
           <Text style={styles.parkingStatLabel}>Hours</Text>
@@ -106,7 +88,7 @@ function OwnerParkingCard({ parking, onEdit, onToggle }) {
           onPress={() => onEdit && onEdit(parking)}
           activeOpacity={0.8}
         >
-          <Ionicons name="create-outline" size={14} color={COLORS.primary} />
+          <Ionicons name="create-outline" size={14} color={T.teal} />
           <Text style={styles.editBtnText}>Edit</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -117,14 +99,9 @@ function OwnerParkingCard({ parking, onEdit, onToggle }) {
           <Ionicons
             name={isActive ? 'pause-circle-outline' : 'play-circle-outline'}
             size={14}
-            color={isActive ? COLORS.warning : COLORS.success}
+            color={isActive ? T.warning : T.success}
           />
-          <Text
-            style={[
-              styles.toggleBtnText,
-              { color: isActive ? COLORS.warning : COLORS.success },
-            ]}
-          >
+          <Text style={[styles.toggleBtnText, { color: isActive ? T.warning : T.success }]}>
             {isActive ? 'Deactivate' : 'Activate'}
           </Text>
         </TouchableOpacity>
@@ -133,7 +110,10 @@ function OwnerParkingCard({ parking, onEdit, onToggle }) {
   );
 }
 
-export default function OwnerHomeScreen({ navigation }) {
+export default function OwnerHomeScreen({ navigation, route }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const { user, logout } = useAuth();
   const [listings, setListings] = useState([]);
   const [stats, setStats] = useState({ totalListings: 0, activeNow: 0, bookingsToday: 0 });
@@ -160,7 +140,6 @@ export default function OwnerHomeScreen({ navigation }) {
     loadData();
   }, []);
 
-  // Refresh when we come back from ListParkingScreen
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       loadData();
@@ -189,15 +168,9 @@ export default function OwnerHomeScreen({ navigation }) {
           text: action.charAt(0).toUpperCase() + action.slice(1),
           onPress: async () => {
             try {
-              const updated = await updateParking(
-                parking.id,
-                { availableSpots: newSpots },
-                user?.token
-              );
+              const updated = await updateParking(parking.id, { availableSpots: newSpots }, user?.token);
               if (updated) {
-                setListings((prev) =>
-                  prev.map((p) => (p.id === parking.id ? updated : p))
-                );
+                setListings((prev) => prev.map((p) => (p.id === parking.id ? updated : p)));
               }
             } catch {
               Alert.alert('Error', 'Failed to update listing.');
@@ -212,24 +185,9 @@ export default function OwnerHomeScreen({ navigation }) {
     <View>
       {/* Stats */}
       <View style={styles.statsRow}>
-        <StatCard
-          icon="list"
-          value={stats.totalListings}
-          label="Total Listings"
-          color={COLORS.primary}
-        />
-        <StatCard
-          icon="checkmark-circle"
-          value={stats.activeNow}
-          label="Active Now"
-          color={COLORS.success}
-        />
-        <StatCard
-          icon="car"
-          value={stats.bookingsToday}
-          label="Booked Today"
-          color={COLORS.accent}
-        />
+        <StatCard icon="list" value={stats.totalListings} label="Total Listings" color={T.teal} />
+        <StatCard icon="checkmark-circle" value={stats.activeNow} label="Active Now" color={T.success} />
+        <StatCard icon="car" value={stats.bookingsToday} label="Booked Today" color={T.gold} />
       </View>
 
       {/* Add button */}
@@ -238,9 +196,9 @@ export default function OwnerHomeScreen({ navigation }) {
         onPress={() => navigation.navigate('ListParking', {})}
         activeOpacity={0.85}
       >
-        <Ionicons name="add-circle" size={22} color={COLORS.primary} />
+        <Ionicons name="add-circle" size={22} color={T.teal} />
         <Text style={styles.addBtnText}>Add New Parking Spot</Text>
-        <Ionicons name="chevron-forward" size={18} color={COLORS.primary} />
+        <Ionicons name="chevron-forward" size={18} color={T.teal} />
       </TouchableOpacity>
 
       {/* Listings title */}
@@ -252,12 +210,12 @@ export default function OwnerHomeScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Parking Owner Portal</Text>
@@ -272,13 +230,13 @@ export default function OwnerHomeScreen({ navigation }) {
           }}
           style={styles.backBtn}
         >
-          <Ionicons name="log-out-outline" size={22} color={COLORS.white} />
+          <Ionicons name="log-out-outline" size={22} color="#ffffff" />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={T.teal} />
           <Text style={styles.loadingText}>Loading your listings...</Text>
         </View>
       ) : (
@@ -286,25 +244,19 @@ export default function OwnerHomeScreen({ navigation }) {
           data={listings}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
-            <OwnerParkingCard
-              parking={item}
-              onEdit={handleEdit}
-              onToggle={handleToggle}
-            />
+            <OwnerParkingCard parking={item} onEdit={handleEdit} onToggle={handleToggle} />
           )}
           ListHeaderComponent={renderHeader}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="business-outline" size={60} color={COLORS.border} />
+              <Ionicons name="business-outline" size={60} color={T.border} />
               <Text style={styles.emptyTitle}>No listings yet</Text>
               <Text style={styles.emptyText}>
                 Tap "Add New Parking Spot" to list your first parking space and start earning.
               </Text>
             </View>
           }
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
         />
@@ -313,10 +265,10 @@ export default function OwnerHomeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.background },
+function createStyles(T) { return StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: T.bg },
   header: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: T.teal,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -325,220 +277,80 @@ const styles = StyleSheet.create({
   },
   backBtn: { padding: 4 },
   headerCenter: { flex: 1 },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: COLORS.white,
-  },
-  headerSub: {
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.65)',
-    marginTop: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
+  headerTitle: { fontSize: 17, fontWeight: '800', color: '#ffffff' },
+  headerSub: { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 1 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: T.textMuted },
   list: { paddingBottom: 30 },
-  statsRow: {
-    flexDirection: 'row',
-    margin: 16,
-    gap: 10,
-  },
+  statsRow: { flexDirection: 'row', margin: 16, gap: 10 },
   statCard: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    padding: 14,
-    alignItems: 'center',
-    borderTopWidth: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 3,
-    elevation: 2,
-    gap: 4,
+    flex: 1, backgroundColor: T.surface, borderRadius: 12, padding: 14,
+    alignItems: 'center', borderTopWidth: 3,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, shadowRadius: 3, elevation: 2, gap: 4,
+    borderWidth: 1, borderColor: T.border,
   },
-  statValue: {
-    fontSize: 24,
-    fontWeight: '900',
-  },
+  statValue: { fontSize: 24, fontWeight: '900' },
   statLabel: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
+    fontSize: 10, color: T.textMuted, textAlign: 'center',
+    textTransform: 'uppercase', letterSpacing: 0.3,
   },
   addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.accent,
-    marginHorizontal: 16,
-    marginBottom: 20,
-    borderRadius: 14,
-    padding: 16,
-    gap: 10,
-    shadowColor: COLORS.accent,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.goldLight,
+    marginHorizontal: 16, marginBottom: 20,
+    borderRadius: 14, padding: 16, gap: 10,
+    borderWidth: 1, borderColor: T.goldBorder,
   },
-  addBtnText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.primary,
-  },
+  addBtnText: { flex: 1, fontSize: 15, fontWeight: '800', color: T.teal },
   listingsTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginHorizontal: 16,
-    marginBottom: 8,
+    fontSize: 14, fontWeight: '700', color: T.textMuted,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+    marginHorizontal: 16, marginBottom: 8,
   },
   parkingCard: {
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: T.surface, marginHorizontal: 16, marginBottom: 12,
+    borderRadius: 14, padding: 16, borderWidth: 1, borderColor: T.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2,
   },
   parkingCardTop: { marginBottom: 12 },
   parkingCardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-    gap: 8,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 4, gap: 8,
   },
-  parkingCardName: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
+  parkingCardName: { flex: 1, fontSize: 15, fontWeight: '700', color: T.text },
   activeIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    gap: 4,
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3, gap: 4,
   },
-  activeDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  activeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  parkingCardAddress: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    marginBottom: 2,
-  },
-  parkingCardType: {
-    fontSize: 11,
-    color: COLORS.primary,
-    fontStyle: 'italic',
-  },
+  activeDot: { width: 7, height: 7, borderRadius: 3.5 },
+  activeText: { fontSize: 11, fontWeight: '700' },
+  parkingCardAddress: { fontSize: 12, color: T.textMuted, marginBottom: 2 },
+  parkingCardType: { fontSize: 11, color: T.teal, fontStyle: 'italic' },
   parkingCardStats: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.background,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginBottom: 12,
+    flexDirection: 'row', backgroundColor: T.surface2,
+    borderRadius: 8, paddingVertical: 10, paddingHorizontal: 4, marginBottom: 12,
   },
-  parkingStatItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
+  parkingStatItem: { flex: 1, alignItems: 'center' },
   parkingStatLabel: {
-    fontSize: 10,
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-    marginBottom: 2,
+    fontSize: 10, color: T.textMuted, textTransform: 'uppercase', letterSpacing: 0.3, marginBottom: 2,
   },
-  parkingStatValue: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
-  parkingCardActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
+  parkingStatValue: { fontSize: 13, fontWeight: '700', color: T.text },
+  parkingCardActions: { flexDirection: 'row', gap: 10 },
   editBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    gap: 5,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, borderRadius: 10, borderWidth: 1.5, borderColor: T.teal, gap: 5,
   },
-  editBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.primary,
-  },
+  editBtnText: { fontSize: 13, fontWeight: '600', color: T.teal },
   toggleBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 9,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    gap: 5,
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 9, borderRadius: 10, borderWidth: 1.5, gap: 5,
   },
-  deactivateBtn: {
-    borderColor: COLORS.warning,
-  },
-  activateBtn: {
-    borderColor: COLORS.success,
-  },
-  toggleBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingHorizontal: 40,
-    gap: 10,
-  },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textDark,
-    marginTop: 8,
-  },
-  emptyText: {
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  deactivateBtn: { borderColor: T.warning },
+  activateBtn: { borderColor: T.success },
+  toggleBtnText: { fontSize: 13, fontWeight: '600' },
+  emptyContainer: { alignItems: 'center', paddingTop: 40, paddingHorizontal: 40, gap: 10 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: T.text, marginTop: 8 },
+  emptyText: { fontSize: 13, color: T.textMuted, textAlign: 'center', lineHeight: 20 },
 });
+}

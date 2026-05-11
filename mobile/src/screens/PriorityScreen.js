@@ -1,4 +1,7 @@
-import React from 'react';
+// Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+// Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
+
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,17 +11,9 @@ import {
   ScrollView,
   StatusBar,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 
-const COLORS = {
-  primary: '#1a3c5e',
-  accent: '#f0a500',
-  background: '#f5f5f5',
-  white: '#ffffff',
-  textDark: '#333333',
-  textSecondary: '#666666',
-  border: '#d0d8e0',
-};
 
 const PRIORITY_ITEMS = [
   {
@@ -60,6 +55,9 @@ const PRIORITY_ITEMS = [
 ];
 
 export default function PriorityScreen({ navigation, route }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const returnTo = route?.params?.returnTo || 'SearchResults';
   const existingParams = route?.params?.searchParams || {};
 
@@ -73,12 +71,12 @@ export default function PriorityScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Priority Options</Text>
         <View style={{ width: 36 }} />
@@ -87,7 +85,7 @@ export default function PriorityScreen({ navigation, route }) {
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Info banner */}
         <View style={styles.infoBanner}>
-          <Ionicons name="information-circle" size={20} color={COLORS.primary} />
+          <Ionicons name="information-circle" size={20} color={T.teal} />
           <Text style={styles.infoText}>
             Choose how you want parking results to be sorted and filtered.
           </Text>
@@ -95,7 +93,7 @@ export default function PriorityScreen({ navigation, route }) {
 
         <Text style={styles.sectionTitle}>What matters most to you?</Text>
 
-        {PRIORITY_ITEMS.map((item, idx) => (
+        {PRIORITY_ITEMS.map((item) => (
           <TouchableOpacity
             key={item.id}
             style={styles.priorityItem}
@@ -114,7 +112,7 @@ export default function PriorityScreen({ navigation, route }) {
             </View>
 
             {/* Arrow */}
-            <Ionicons name="chevron-forward" size={20} color={COLORS.border} />
+            <Ionicons name="chevron-forward" size={20} color={T.border} />
           </TouchableOpacity>
         ))}
 
@@ -122,25 +120,25 @@ export default function PriorityScreen({ navigation, route }) {
         <View style={styles.infoCard}>
           <Text style={styles.infoCardTitle}>How priorities work</Text>
           <View style={styles.infoRow}>
-            <Ionicons name="cash" size={14} color={COLORS.accent} />
+            <Ionicons name="cash" size={14} color={T.gold} />
             <Text style={styles.infoRowText}>
               <Text style={{ fontWeight: '700' }}>Cost:</Text> Lowest hourly rate shown first
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="car" size={14} color={COLORS.accent} />
+            <Ionicons name="car" size={14} color={T.gold} />
             <Text style={styles.infoRowText}>
               <Text style={{ fontWeight: '700' }}>Type:</Text> Grouped by parking category
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="locate" size={14} color={COLORS.accent} />
+            <Ionicons name="locate" size={14} color={T.gold} />
             <Text style={styles.infoRowText}>
               <Text style={{ fontWeight: '700' }}>Proximity:</Text> Closest to your destination first
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Ionicons name="document-text" size={14} color={COLORS.accent} />
+            <Ionicons name="document-text" size={14} color={T.gold} />
             <Text style={styles.infoRowText}>
               <Text style={{ fontWeight: '700' }}>Citations:</Text> Official designated parking areas
             </Text>
@@ -153,10 +151,10 @@ export default function PriorityScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.background },
+function createStyles(T) { return StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: T.bg },
   header: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: T.teal,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -167,43 +165,45 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: COLORS.white,
+    color: '#ffffff',
     letterSpacing: 0.5,
   },
   scroll: { flex: 1 },
   infoBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#e8f0fe',
+    backgroundColor: T.tealLight,
     margin: 16,
     borderRadius: 10,
     padding: 12,
     gap: 8,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.primary,
+    borderLeftColor: T.teal,
   },
   infoText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.primary,
+    color: T.teal,
     lineHeight: 18,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: COLORS.textDark,
+    color: T.text,
     marginHorizontal: 16,
     marginBottom: 12,
   },
   priorityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: T.surface,
     marginHorizontal: 16,
     marginBottom: 10,
     borderRadius: 14,
     padding: 16,
     gap: 14,
+    borderWidth: 1,
+    borderColor: T.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.07,
@@ -221,20 +221,22 @@ const styles = StyleSheet.create({
   itemLabel: {
     fontSize: 15,
     fontWeight: '700',
-    color: COLORS.textDark,
+    color: T.text,
     marginBottom: 3,
   },
   itemSub: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: T.textMuted,
     lineHeight: 17,
   },
   infoCard: {
-    backgroundColor: COLORS.white,
+    backgroundColor: T.surface,
     marginHorizontal: 16,
     marginTop: 8,
     borderRadius: 14,
     padding: 16,
+    borderWidth: 1,
+    borderColor: T.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06,
@@ -244,7 +246,7 @@ const styles = StyleSheet.create({
   infoCardTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: T.teal,
     marginBottom: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -258,7 +260,8 @@ const styles = StyleSheet.create({
   infoRowText: {
     flex: 1,
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: T.textMuted,
     lineHeight: 18,
   },
 });
+}

@@ -9,7 +9,7 @@
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
-      "backgroundColor": "#1a3c5e"
+      "backgroundColor": "#f5f7fc"
     },
     "assetBundlePatterns": [
       "**/*"

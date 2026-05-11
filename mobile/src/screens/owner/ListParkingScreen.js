@@ -1,4 +1,7 @@
-import React, { useState, useEffect } from 'react';
+// Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
+// Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
+
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,20 +17,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { addParking, updateParking } from '../../services/api';
+import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 
-const COLORS = {
-  primary: '#1a3c5e',
-  accent: '#f0a500',
-  background: '#f5f5f5',
-  white: '#ffffff',
-  textDark: '#333333',
-  textSecondary: '#666666',
-  border: '#d0d8e0',
-  error: '#c62828',
-  errorBg: '#ffebee',
-  success: '#2e7d32',
-};
 
 const PARKING_TYPES = [
   { id: 1, label: 'Dedicated Parking' },
@@ -44,6 +36,8 @@ const PARKING_TYPES = [
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 function FormField({ label, required, children, error }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
   return (
     <View style={styles.formField}>
       <Text style={styles.fieldLabel}>
@@ -57,7 +51,8 @@ function FormField({ label, required, children, error }) {
 }
 
 function TimeSelector({ label, value, onChange }) {
-  const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
   const minutes = ['00', '15', '30', '45'];
 
   const [h, m] = (value || '08:00').split(':');
@@ -80,13 +75,13 @@ function TimeSelector({ label, value, onChange }) {
       <Text style={styles.timeSelectorLabel}>{label}</Text>
       <View style={styles.timeSelectorRow}>
         <TouchableOpacity onPress={() => adjustHour(-1)} style={styles.timeArrow}>
-          <Ionicons name="chevron-back" size={16} color={COLORS.primary} />
+          <Ionicons name="chevron-back" size={16} color={T.teal} />
         </TouchableOpacity>
         <View style={styles.timeDisplay}>
           <Text style={styles.timeDisplayText}>{currentH}:{currentM}</Text>
         </View>
         <TouchableOpacity onPress={() => adjustHour(1)} style={styles.timeArrow}>
-          <Ionicons name="chevron-forward" size={16} color={COLORS.primary} />
+          <Ionicons name="chevron-forward" size={16} color={T.teal} />
         </TouchableOpacity>
       </View>
     </View>
@@ -94,6 +89,9 @@ function TimeSelector({ label, value, onChange }) {
 }
 
 export default function ListParkingScreen({ navigation, route }) {
+  const { T } = useTheme();
+  const styles = useMemo(() => createStyles(T), [T]);
+
   const { user } = useAuth();
   const existingParking = route?.params?.existingParking || null;
   const isEdit = !!existingParking;
@@ -225,12 +223,12 @@ export default function ListParkingScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
+      <StatusBar barStyle={T.statusBar} backgroundColor={T.bg} />
 
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={COLORS.white} />
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {isEdit ? 'Edit Parking Spot' : 'List Your Parking Spot'}
@@ -253,7 +251,7 @@ export default function ListParkingScreen({ navigation, route }) {
               value={form.name}
               onChangeText={(v) => updateField('name', v)}
               placeholder="e.g. Central Garage, Maple Court Parking"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={T.textMuted}
               maxLength={80}
             />
           </FormField>
@@ -264,7 +262,7 @@ export default function ListParkingScreen({ navigation, route }) {
               value={form.address}
               onChangeText={(v) => updateField('address', v)}
               placeholder="Full street address"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={T.textMuted}
               multiline
               numberOfLines={2}
               textAlignVertical="top"
@@ -282,7 +280,7 @@ export default function ListParkingScreen({ navigation, route }) {
               <Ionicons
                 name={showTypeDropdown ? 'chevron-up' : 'chevron-down'}
                 size={18}
-                color={COLORS.primary}
+                color={T.teal}
               />
             </TouchableOpacity>
             {showTypeDropdown && (
@@ -290,23 +288,15 @@ export default function ListParkingScreen({ navigation, route }) {
                 {PARKING_TYPES.map((type) => (
                   <TouchableOpacity
                     key={type.id}
-                    style={[
-                      styles.dropdownItem,
-                      form.typeId === type.id && styles.dropdownItemSelected,
-                    ]}
+                    style={[styles.dropdownItem, form.typeId === type.id && styles.dropdownItemSelected]}
                     onPress={() => selectType(type)}
                     activeOpacity={0.75}
                   >
-                    <Text
-                      style={[
-                        styles.dropdownItemText,
-                        form.typeId === type.id && styles.dropdownItemTextSelected,
-                      ]}
-                    >
+                    <Text style={[styles.dropdownItemText, form.typeId === type.id && styles.dropdownItemTextSelected]}>
                       {type.label}
                     </Text>
                     {form.typeId === type.id && (
-                      <Ionicons name="checkmark" size={16} color={COLORS.primary} />
+                      <Ionicons name="checkmark" size={16} color={T.teal} />
                     )}
                   </TouchableOpacity>
                 ))}
@@ -325,8 +315,8 @@ export default function ListParkingScreen({ navigation, route }) {
             <Switch
               value={form.isPrivate}
               onValueChange={(v) => updateField('isPrivate', v)}
-              trackColor={{ false: '#ccc', true: COLORS.primary }}
-              thumbColor={COLORS.white}
+              trackColor={{ false: T.border, true: T.teal }}
+              thumbColor="#ffffff"
             />
           </View>
         </View>
@@ -337,25 +327,25 @@ export default function ListParkingScreen({ navigation, route }) {
 
           <View style={styles.row}>
             <View style={styles.halfField}>
-              <FormField label="Cost Per Hour ($)" required error={errors.costPerHour}>
+              <FormField label="Cost Per Hour (£)" required error={errors.costPerHour}>
                 <TextInput
                   style={[styles.textInput, errors.costPerHour && styles.textInputError]}
                   value={form.costPerHour}
                   onChangeText={(v) => updateField('costPerHour', v)}
                   placeholder="2.50"
-                  placeholderTextColor="#aaa"
+                  placeholderTextColor={T.textMuted}
                   keyboardType="decimal-pad"
                 />
               </FormField>
             </View>
             <View style={styles.halfField}>
-              <FormField label="Cost Per Day ($)" required error={errors.costPerDay}>
+              <FormField label="Cost Per Day (£)" required error={errors.costPerDay}>
                 <TextInput
                   style={[styles.textInput, errors.costPerDay && styles.textInputError]}
                   value={form.costPerDay}
                   onChangeText={(v) => updateField('costPerDay', v)}
                   placeholder="15.00"
-                  placeholderTextColor="#aaa"
+                  placeholderTextColor={T.textMuted}
                   keyboardType="decimal-pad"
                 />
               </FormField>
@@ -379,9 +369,7 @@ export default function ListParkingScreen({ navigation, route }) {
                     onPress={() => toggleDay(day)}
                     activeOpacity={0.75}
                   >
-                    <Text
-                      style={[styles.dayBtnText, selected && styles.dayBtnTextSelected]}
-                    >
+                    <Text style={[styles.dayBtnText, selected && styles.dayBtnTextSelected]}>
                       {day}
                     </Text>
                   </TouchableOpacity>
@@ -399,7 +387,7 @@ export default function ListParkingScreen({ navigation, route }) {
               onChange={(v) => updateField('availableFrom', v)}
             />
             <View style={styles.timeSeparator}>
-              <Ionicons name="arrow-forward" size={18} color={COLORS.textSecondary} />
+              <Ionicons name="arrow-forward" size={18} color={T.textMuted} />
             </View>
             <TimeSelector
               label="To"
@@ -418,7 +406,7 @@ export default function ListParkingScreen({ navigation, route }) {
               value={form.totalSpots}
               onChangeText={(v) => updateField('totalSpots', v)}
               placeholder="e.g. 10"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={T.textMuted}
               keyboardType="number-pad"
             />
           </FormField>
@@ -432,7 +420,7 @@ export default function ListParkingScreen({ navigation, route }) {
             value={form.description}
             onChangeText={(v) => updateField('description', v)}
             placeholder="Describe your parking spot — security features, access instructions, special notes..."
-            placeholderTextColor="#aaa"
+            placeholderTextColor={T.textMuted}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -453,14 +441,10 @@ export default function ListParkingScreen({ navigation, route }) {
           activeOpacity={0.85}
         >
           {loading ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
+            <ActivityIndicator size="small" color={T.teal} />
           ) : (
             <>
-              <Ionicons
-                name={isEdit ? 'save' : 'checkmark-circle'}
-                size={20}
-                color={COLORS.primary}
-              />
+              <Ionicons name={isEdit ? 'save' : 'checkmark-circle'} size={20} color={T.teal} />
               <Text style={styles.submitBtnText}>
                 {isEdit ? 'Save Changes' : 'List My Parking Spot'}
               </Text>
@@ -472,10 +456,10 @@ export default function ListParkingScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: COLORS.background },
+function createStyles(T) { return StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: T.bg },
   header: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: T.teal,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -483,247 +467,98 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   backBtn: { padding: 4 },
-  headerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: COLORS.white,
-    letterSpacing: 0.3,
-  },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: '#ffffff', letterSpacing: 0.3 },
   scroll: { flex: 1 },
   section: {
-    backgroundColor: COLORS.white,
-    marginHorizontal: 16,
-    marginTop: 14,
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: T.surface,
+    marginHorizontal: 16, marginTop: 14,
+    borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: T.border,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: COLORS.primary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 14,
-    paddingBottom: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.background,
+    fontSize: 14, fontWeight: '800', color: T.teal,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+    marginBottom: 14, paddingBottom: 8,
+    borderBottomWidth: 1, borderBottomColor: T.border,
   },
   formField: { marginBottom: 14 },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: COLORS.textDark,
-    marginBottom: 6,
-  },
-  required: { color: COLORS.error },
-  fieldError: {
-    fontSize: 11,
-    color: COLORS.error,
-    marginTop: 4,
-  },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: T.text, marginBottom: 6 },
+  required: { color: T.error },
+  fieldError: { fontSize: 11, color: T.error, marginTop: 4 },
   textInput: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: COLORS.textDark,
-    minHeight: 46,
+    backgroundColor: T.surface2,
+    borderWidth: 1.5, borderColor: T.border,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10,
+    fontSize: 14, color: T.text, minHeight: 46,
   },
-  textInputError: {
-    borderColor: COLORS.error,
-    backgroundColor: COLORS.errorBg,
-  },
-  textArea: {
-    minHeight: 90,
-    paddingTop: 10,
-  },
-  charCount: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'right',
-    marginTop: 4,
-  },
-  row: {
-    flexDirection: 'row',
-    gap: 12,
-  },
+  textInputError: { borderColor: T.error, backgroundColor: 'rgba(255,107,107,0.08)' },
+  textArea: { minHeight: 90, paddingTop: 10 },
+  charCount: { fontSize: 11, color: T.textMuted, textAlign: 'right', marginTop: 4 },
+  row: { flexDirection: 'row', gap: 12 },
   halfField: { flex: 1 },
   dropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    minHeight: 46,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.surface2, borderWidth: 1.5, borderColor: T.border,
+    borderRadius: 10, paddingHorizontal: 12, paddingVertical: 12, minHeight: 46,
   },
-  dropdownText: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.textDark,
-    fontWeight: '500',
-  },
+  dropdownText: { flex: 1, fontSize: 13, color: T.text, fontWeight: '500' },
   dropdownList: {
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    marginTop: 4,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    backgroundColor: T.surface, borderWidth: 1, borderColor: T.border,
+    borderRadius: 10, marginTop: 4, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
   },
   dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.background,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: T.border,
   },
-  dropdownItemSelected: {
-    backgroundColor: '#e8f0fe',
-  },
-  dropdownItemText: {
-    flex: 1,
-    fontSize: 13,
-    color: COLORS.textDark,
-  },
-  dropdownItemTextSelected: {
-    color: COLORS.primary,
-    fontWeight: '700',
-  },
+  dropdownItemSelected: { backgroundColor: T.tealLight },
+  dropdownItemText: { flex: 1, fontSize: 13, color: T.text },
+  dropdownItemTextSelected: { color: T.teal, fontWeight: '700' },
   switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', paddingVertical: 8,
   },
-  switchLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.textDark,
-    marginBottom: 2,
-  },
-  switchSub: {
-    fontSize: 11,
-    color: COLORS.textSecondary,
-  },
-  daysGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
+  switchLabel: { fontSize: 14, fontWeight: '600', color: T.text, marginBottom: 2 },
+  switchSub: { fontSize: 11, color: T.textMuted },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   dayBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.background,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: 8, borderWidth: 1.5, borderColor: T.border, backgroundColor: T.surface2,
   },
-  dayBtnSelected: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
-  },
-  dayBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-  },
-  dayBtnTextSelected: {
-    color: COLORS.white,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 8,
-  },
-  timeSeparator: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 16,
-  },
-  timeSelector: {
-    flex: 1,
-  },
+  dayBtnSelected: { backgroundColor: T.teal, borderColor: T.teal },
+  dayBtnText: { fontSize: 12, fontWeight: '600', color: T.textMuted },
+  dayBtnTextSelected: { color: '#ffffff' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  timeSeparator: { alignItems: 'center', justifyContent: 'center', paddingTop: 16 },
+  timeSelector: { flex: 1 },
   timeSelectorLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 5,
+    fontSize: 11, fontWeight: '600', color: T.textMuted,
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5,
   },
   timeSelectorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: T.surface2, borderRadius: 10,
+    borderWidth: 1.5, borderColor: T.border, overflow: 'hidden',
   },
-  timeArrow: {
-    paddingHorizontal: 8,
-    paddingVertical: 10,
-    backgroundColor: '#eef2f5',
-  },
-  timeDisplay: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  timeDisplayText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: COLORS.textDark,
-  },
+  timeArrow: { paddingHorizontal: 8, paddingVertical: 10, backgroundColor: T.border },
+  timeDisplay: { flex: 1, alignItems: 'center', paddingVertical: 10 },
+  timeDisplayText: { fontSize: 15, fontWeight: '700', color: T.text },
   submitContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: COLORS.white,
-    borderTopWidth: 1,
-    borderTopColor: '#e8edf2',
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    padding: 16, backgroundColor: T.surface,
+    borderTopWidth: 1, borderTopColor: T.border,
   },
   submitBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.accent,
-    borderRadius: 14,
-    paddingVertical: 15,
-    gap: 10,
-    shadowColor: COLORS.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: T.gold, borderRadius: 14, paddingVertical: 15, gap: 10,
+    shadowColor: T.gold, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  submitBtnDisabled: {
-    opacity: 0.6,
-  },
-  submitBtnText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.primary,
-    letterSpacing: 0.5,
-  },
+  submitBtnDisabled: { opacity: 0.6 },
+  submitBtnText: { fontSize: 16, fontWeight: '800', color: T.teal, letterSpacing: 0.5 },
 });
+}

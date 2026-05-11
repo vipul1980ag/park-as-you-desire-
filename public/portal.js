@@ -20,6 +20,7 @@ let selectedParking  = null;
 /* Map state */
 let map            = null;
 let userMarker     = null;
+let destMarker     = null;
 let parkingMarkers = [];
 let modalMiniMap   = null;
 
@@ -293,27 +294,65 @@ function initModalMap(lat, lng, name) {
 /* ============================================================
    AUTOCOMPLETE — Nominatim (OpenStreetMap, free, no API key)
    ============================================================ */
+function showDestMarker(lat, lng) {
+  if (!map) return;
+  if (destMarker) map.removeLayer(destMarker);
+  destMarker = L.marker([lat, lng], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div style="width:14px;height:14px;background:#e74c3c;border-radius:50%;border:3px solid #fff;box-shadow:0 0 8px rgba(231,76,60,.8)"></div>',
+      iconSize: [14, 14], iconAnchor: [7, 7]
+    })
+  }).addTo(map).bindPopup('<strong>📍 Destination</strong>');
+  map.setView([lat, lng], 14);
+}
+
 function setupAllAutocompletes() {
-  // Planner From — updates userLat/userLng + centers map on user
+  // Planner From — updates userLat/userLng + shows blue dot on map
   setupAutocomplete('plannerFrom', 'plannerFromDropdown', (name, lat, lng) => {
     document.getElementById('plannerFrom').value = name;
     userLat = lat; userLng = lng;
     if (map) showUserOnMap(lat, lng);
   });
 
-  // Planner To — updates destLat/destLng + pans map
+  // Planner To — updates destLat/destLng + shows red dot on map
   setupAutocomplete('plannerTo', 'plannerToDropdown', (name, lat, lng) => {
     document.getElementById('plannerTo').value = name;
     destLat = lat; destLng = lng;
-    if (map) map.setView([lat, lng], 13);
-  }, () => { destLat = null; destLng = null; });
+    showDestMarker(lat, lng);
+  });
+
+  // Also geocode the To field proactively as the user types
+  // so destLat/destLng are set even without picking from the dropdown
+  const plannerToInput = document.getElementById('plannerTo');
+  if (plannerToInput) {
+    let geoTimer = null;
+    plannerToInput.addEventListener('input', () => {
+      clearTimeout(geoTimer);
+      destLat = null; destLng = null;
+      if (destMarker) { map && map.removeLayer(destMarker); destMarker = null; }
+      const q = plannerToInput.value.trim();
+      if (q.length >= 3) {
+        geoTimer = setTimeout(async () => {
+          try {
+            const coords = await geocodeAddress(q);
+            // Only apply if the input text hasn't changed since we started
+            if (coords && plannerToInput.value.trim() === q) {
+              destLat = coords.lat; destLng = coords.lng;
+              showDestMarker(coords.lat, coords.lng);
+            }
+          } catch (_) {}
+        }, 700);
+      }
+    });
+  }
 
   // Track To — updates destLat/destLng + pans map
   setupAutocomplete('trackTo', 'trackToDropdown', (name, lat, lng) => {
     document.getElementById('trackTo').value = name;
     destLat = lat; destLng = lng;
     if (map) map.setView([lat, lng], 13);
-  }, () => { destLat = null; destLng = null; });
+  });
 }
 
 function setupAutocomplete(inputId, dropdownId, onSelect, onReset) {
@@ -680,52 +719,47 @@ async function searchParking() {
   const btn = document.getElementById('searchBtn');
   setButtonLoading(btn, true, '🔍 Search Parking');
 
-  // Step 1: use destination coords if available from autocomplete
+  // Use autocomplete coords; if not set, geocode the typed text now as last resort
   let refLat = destLat;
   let refLng = destLng;
 
-  // Step 2: geocode the typed destination text regardless of whether GPS was detected
   if (refLat === null) {
-    const toText = document.getElementById('plannerTo')?.value?.trim();
+    const toText = (document.getElementById('plannerTo')?.value || '').trim();
     if (toText) {
-      showToast(`Step 1: Geocoding "${toText}"…`, 'info');
+      showToast(`Locating "${toText}"…`, 'info');
       try {
         const coords = await geocodeAddress(toText);
         if (coords) {
-          refLat = coords.lat; refLng = coords.lng; destLat = refLat; destLng = refLng;
-          showToast(`Step 2: Found ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`, 'success');
+          refLat = coords.lat; refLng = coords.lng;
+          destLat = refLat; destLng = refLng;
+          showDestMarker(refLat, refLng);
         } else {
-          showToast('Step 2: Geocoding returned no match for that place name', 'warning');
+          showToast(`Could not find "${toText}" — try a more specific place name.`, 'warning');
         }
-      } catch (geoErr) {
-        showToast(`Step 2: Geocoding failed — ${geoErr.message}`, 'error');
+      } catch (_) {
+        showToast('Location lookup failed — check your internet connection.', 'error');
       }
     }
-  } else {
-    showToast(`Step 1: Using coords ${refLat.toFixed(4)}, ${refLng.toFixed(4)}`, 'info');
   }
 
-  // Step 3: fall back to user GPS only if no destination was provided at all
   if (refLat === null) { refLat = userLat; refLng = userLng; }
 
   if (refLat === null) {
-    showToast('Please enter a destination or detect your location first.', 'warning');
+    showToast('Enter a destination or detect your location first.', 'warning');
     setButtonLoading(btn, false, '🔍 Search Parking');
     return;
   }
 
   showLoading(true);
+  showToast(`Searching for parking near ${refLat.toFixed(4)}, ${refLng.toFixed(4)}…`, 'info');
 
   try {
-    showToast(`Step 3: Searching OSM at ${refLat.toFixed(4)}, ${refLng.toFixed(4)}…`, 'info');
     allParkings = await fetchOSMParkings(refLat, refLng, radius, type);
     if (allParkings.length === 0) {
-      showToast('Step 4: OSM returned 0 results. Try a larger radius.', 'warning');
-    } else {
-      showToast(`Step 4: OSM returned ${allParkings.length} spots`, 'success');
+      showToast('No parking found nearby — try a larger search radius.', 'warning');
     }
   } catch (err) {
-    showToast(`Step 4: OSM fetch failed — ${err.message}. Showing sample data.`, 'error');
+    showToast('OpenStreetMap unavailable — showing sample data.', 'warning');
     allParkings = MOCK_PARKINGS.map(p => ({
       ...p,
       distance: calcDist(refLat, refLng, p.lat, p.lng)
@@ -1564,13 +1598,27 @@ function aiExecuteSearch(action) {
   }
 }
 
-/* Geocode a place name using Photon (same service as the autocomplete) */
+/* Geocode a place name — tries Photon first, falls back to Nominatim */
 async function geocodeAddress(query) {
-  const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=en`;
-  const res  = await fetch(url);
+  // Try Photon (fast, OSM-backed, no key)
+  try {
+    const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1&lang=en`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.features && data.features.length) {
+        const [lng, lat] = data.features[0].geometry.coordinates;
+        return { lat, lng };
+      }
+    }
+  } catch (_) {}
+
+  // Fall back to Nominatim (OpenStreetMap)
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`,
+    { headers: { 'Accept-Language': 'en' } }
+  );
   if (!res.ok) throw new Error('Geocode failed');
   const data = await res.json();
-  if (!data.features || !data.features.length) return null;
-  const [lng, lat] = data.features[0].geometry.coordinates;
-  return { lat, lng };
+  if (!data || !data.length) return null;
+  return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
 }

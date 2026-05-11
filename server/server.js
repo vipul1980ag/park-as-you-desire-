@@ -37,7 +37,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
       imgSrc: ["'self'", 'data:', 'https://*.tile.openstreetmap.org'],
-      connectSrc: ["'self'", 'https://overpass-api.de', 'https://photon.komoot.io', 'https://router.project-osrm.org'],
+      connectSrc: ["'self'", 'https://overpass-api.de', 'https://photon.komoot.io', 'https://nominatim.openstreetmap.org', 'https://router.project-osrm.org'],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
     },

@@ -41,86 +41,6 @@ let routeDestMarker     = null;
 /* ============================================================
    MOCK DATA (used if API is unavailable)
    ============================================================ */
-const MOCK_PARKINGS = [
-  {
-    _id: 'mock1',
-    name: 'City Centre Car Park A',
-    address: '12 Market Street, London, EC1A 1BB',
-    lat: 51.5155, lng: -0.0922,
-    type: 1, typeName: 'Dedicated Parking',
-    costPerHour: 3.50, costPerDay: 18.00,
-    totalSpots: 120, availableSpots: 45,
-    availableDays: ['Mon','Tue','Wed','Thu','Fri','Sat'],
-    openTime: '06:00', closeTime: '23:00',
-    description: 'Multi-storey car park with 24/7 CCTV and EV charging points.',
-    isActive: true, ownerId: 'owner1'
-  },
-  {
-    _id: 'mock2',
-    name: 'Riverside Street Parking',
-    address: '88 Thames Embankment, London, SE1 2UP',
-    lat: 51.5052, lng: -0.1152,
-    type: 2, typeName: 'Street Parking',
-    costPerHour: 1.50, costPerDay: 0,
-    totalSpots: 30, availableSpots: 8,
-    availableDays: ['Mon','Tue','Wed','Thu','Fri'],
-    openTime: '08:00', closeTime: '20:00',
-    description: 'On-street pay & display parking along the riverside.',
-    isActive: true, ownerId: 'owner2'
-  },
-  {
-    _id: 'mock3',
-    name: 'Shoreditch Private Lot',
-    address: '5 Brick Lane, London, E1 6RF',
-    lat: 51.5224, lng: -0.0718,
-    type: 3, typeName: 'Private Open Lot',
-    costPerHour: 2.00, costPerDay: 12.00,
-    totalSpots: 50, availableSpots: 22,
-    availableDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-    openTime: '00:00', closeTime: '23:59',
-    description: 'Open-air private lot with barrier access.',
-    isActive: true, ownerId: 'owner1'
-  },
-  {
-    _id: 'mock4',
-    name: 'Kings Cross Unlocked Garage',
-    address: '200 York Way, London, N1C 4AU',
-    lat: 51.5320, lng: -0.1233,
-    type: 4, typeName: 'Unlocked Garage',
-    costPerHour: 4.00, costPerDay: 25.00,
-    totalSpots: 80, availableSpots: 3,
-    availableDays: ['Mon','Tue','Wed','Thu','Fri'],
-    openTime: '07:00', closeTime: '21:00',
-    description: 'Covered garage near King\'s Cross station.',
-    isActive: true, ownerId: 'owner3'
-  },
-  {
-    _id: 'mock5',
-    name: 'Canary Wharf Locked Car Park',
-    address: '1 Canada Square, London, E14 5AB',
-    lat: 51.5035, lng: -0.0197,
-    type: 7, typeName: 'Locked Garage',
-    costPerHour: 5.50, costPerDay: 32.00,
-    totalSpots: 200, availableSpots: 0,
-    availableDays: ['Mon','Tue','Wed','Thu','Fri'],
-    openTime: '06:30', closeTime: '22:30',
-    description: 'Premium secured parking in Canary Wharf financial district.',
-    isActive: true, ownerId: 'owner2'
-  },
-  {
-    _id: 'mock6',
-    name: 'Soho Budget Parking',
-    address: '42 Dean Street, London, W1D 4PY',
-    lat: 51.5137, lng: -0.1318,
-    type: 6, typeName: 'Unlocked Lot',
-    costPerHour: 1.00, costPerDay: 8.00,
-    totalSpots: 25, availableSpots: 12,
-    availableDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-    openTime: '09:00', closeTime: '21:00',
-    description: 'Budget-friendly open lot in the heart of Soho.',
-    isActive: true, ownerId: 'owner1'
-  }
-];
 
 /* ============================================================
    PARKING TYPE HELPERS
@@ -703,9 +623,9 @@ function convertOSMToParking(el, refLat, refLng) {
    LOAD ALL PARKINGS (on page load — show mock until user searches)
    ============================================================ */
 async function loadAllParkings() {
-  allParkings      = MOCK_PARKINGS;
-  filteredParkings = [...allParkings];
-  renderResults(filteredParkings);
+  allParkings      = [];
+  filteredParkings = [];
+  renderResults([]);
 }
 
 /* ============================================================

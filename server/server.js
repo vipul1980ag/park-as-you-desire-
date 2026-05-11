@@ -90,8 +90,16 @@ app.use((req, res, next) => {
   next();
 });
 
-// ── Static files ─────────────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, '../public')));
+// ── Static files — no-cache so browser always gets latest JS/HTML ─────────────
+app.use(express.static(path.join(__dirname, '../public'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 
 // ── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRouter);

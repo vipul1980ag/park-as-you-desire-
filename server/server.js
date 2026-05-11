@@ -34,8 +34,8 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
       imgSrc: ["'self'", 'data:', 'https://*.tile.openstreetmap.org'],
       connectSrc: ["'self'", 'https://overpass-api.de', 'https://photon.komoot.io', 'https://router.project-osrm.org'],
       frameSrc: ["'none'"],

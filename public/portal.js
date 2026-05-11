@@ -304,17 +304,17 @@ function setupAllAutocompletes() {
     document.getElementById('plannerTo').value = name;
     destLat = lat; destLng = lng;
     if (map) map.setView([lat, lng], 13);
-  });
+  }, () => { destLat = null; destLng = null; });
 
   // Track To — updates destLat/destLng + pans map
   setupAutocomplete('trackTo', 'trackToDropdown', (name, lat, lng) => {
     document.getElementById('trackTo').value = name;
     destLat = lat; destLng = lng;
     if (map) map.setView([lat, lng], 13);
-  });
+  }, () => { destLat = null; destLng = null; });
 }
 
-function setupAutocomplete(inputId, dropdownId, onSelect) {
+function setupAutocomplete(inputId, dropdownId, onSelect, onReset) {
   const input    = document.getElementById(inputId);
   const dropdown = document.getElementById(dropdownId);
   if (!input || !dropdown) return;
@@ -334,6 +334,7 @@ function setupAutocomplete(inputId, dropdownId, onSelect) {
 
   input.addEventListener('input', () => {
     clearTimeout(timer);
+    if (onReset) onReset(); // clear stale coords when user edits the field
     const q = input.value.trim();
     if (q.length < 3) { closeDropdown(dropdown); return; }
     reposition();
@@ -675,8 +676,19 @@ async function searchParking() {
   setButtonLoading(btn, true, '🔍 Search Parking');
 
   // Prefer destination coords; fall back to user GPS
-  const refLat = destLat !== null ? destLat : userLat;
-  const refLng = destLng !== null ? destLng : userLng;
+  let refLat = destLat !== null ? destLat : userLat;
+  let refLng = destLng !== null ? destLng : userLng;
+
+  // Geocode typed text when user didn't pick from autocomplete dropdown
+  if (refLat === null) {
+    const toText = document.getElementById('plannerTo')?.value?.trim();
+    if (toText) {
+      try {
+        const coords = await geocodeAddress(toText);
+        if (coords) { refLat = coords.lat; refLng = coords.lng; destLat = refLat; destLng = refLng; }
+      } catch (_) {}
+    }
+  }
 
   if (refLat === null) {
     showToast('Please enter a destination or detect your location first.', 'warning');

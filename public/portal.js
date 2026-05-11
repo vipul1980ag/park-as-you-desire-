@@ -685,15 +685,24 @@ async function searchParking() {
   let refLng = destLng;
 
   // Step 2: geocode the typed destination text regardless of whether GPS was detected
-  // (GPS location is the FROM point, not the destination to search near)
   if (refLat === null) {
     const toText = document.getElementById('plannerTo')?.value?.trim();
     if (toText) {
+      showToast(`Step 1: Geocoding "${toText}"…`, 'info');
       try {
         const coords = await geocodeAddress(toText);
-        if (coords) { refLat = coords.lat; refLng = coords.lng; destLat = refLat; destLng = refLng; }
-      } catch (_) {}
+        if (coords) {
+          refLat = coords.lat; refLng = coords.lng; destLat = refLat; destLng = refLng;
+          showToast(`Step 2: Found ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`, 'success');
+        } else {
+          showToast('Step 2: Geocoding returned no match for that place name', 'warning');
+        }
+      } catch (geoErr) {
+        showToast(`Step 2: Geocoding failed — ${geoErr.message}`, 'error');
+      }
     }
+  } else {
+    showToast(`Step 1: Using coords ${refLat.toFixed(4)}, ${refLng.toFixed(4)}`, 'info');
   }
 
   // Step 3: fall back to user GPS only if no destination was provided at all
@@ -708,13 +717,15 @@ async function searchParking() {
   showLoading(true);
 
   try {
+    showToast(`Step 3: Searching OSM at ${refLat.toFixed(4)}, ${refLng.toFixed(4)}…`, 'info');
     allParkings = await fetchOSMParkings(refLat, refLng, radius, type);
     if (allParkings.length === 0) {
-      showToast('No parking found in this area on OpenStreetMap. Try a larger radius.', 'warning');
+      showToast('Step 4: OSM returned 0 results. Try a larger radius.', 'warning');
+    } else {
+      showToast(`Step 4: OSM returned ${allParkings.length} spots`, 'success');
     }
   } catch (err) {
-    console.warn('OSM fetch failed, using mock data:', err.message);
-    showToast('Could not reach OpenStreetMap — showing sample data.', 'warning');
+    showToast(`Step 4: OSM fetch failed — ${err.message}. Showing sample data.`, 'error');
     allParkings = MOCK_PARKINGS.map(p => ({
       ...p,
       distance: calcDist(refLat, refLng, p.lat, p.lng)
@@ -1098,7 +1109,7 @@ function showToast(message, type = 'info') {
   toast.className = `toast ${type}`;
   toast.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ️'}</span> ${escHtml(message)}`;
   container.appendChild(toast);
-  setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 3200);
+  setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 6000);
 }
 
 /* ============================================================

@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal3.js v20260512-NOM3 — Nominatim-only, no Overpass');
+console.log('[PAYD] portal3.js v20260512-v15 — Overpass primary + Nominatim fallback');
 
 const API = '/api';
 
@@ -713,44 +713,94 @@ function convertNominatimSpots(spots) {
   });
 }
 
+const OVERPASS_MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.openstreetmap.ru/api/interpreter',
+];
+
 async function fetchParkings(lat, lng, radiusMeters) {
-  console.log('[PAYD] fetchParkings lat=%s lng=%s r=%s', lat, lng, radiusMeters);
+  console.log('[PAYD] fetchParkings v15 lat=%s lng=%s r=%s', lat, lng, radiusMeters);
   showToast(`Searching parking near ${lat.toFixed(4)}, ${lng.toFixed(4)}…`, 'info');
 
-  // ── Server-side Nominatim (proven reachable from Railway) ────────────────
-  const tryNominatim = async (r) => {
-    const url = `/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${r}`;
-    console.log('[PAYD] Nominatim →', url);
-    const res = await fetch(url);
-    console.log('[PAYD] Nominatim HTTP', res.status);
-    if (!res.ok) throw new Error(`Server HTTP ${res.status}`);
-    const data = await res.json();
-    console.log('[PAYD] Nominatim success:', data.success, 'count:', data.count);
-    if (!data.success) throw new Error(data.message || 'Nominatim search failed');
-    return data.data || [];
-  };
+  // ── 1. Browser-side Overpass (CORS * — works directly from any browser) ────
+  let osmSpots = [];
+  const ovQuery = `[out:json][timeout:20];(node["amenity"="parking"](around:${radiusMeters},${lat},${lng});way["amenity"="parking"](around:${radiusMeters},${lat},${lng});node["landuse"="parking"](around:${radiusMeters},${lat},${lng});way["landuse"="parking"](around:${radiusMeters},${lat},${lng}););out center;`;
 
-  let spots = await tryNominatim(radiusMeters);
-  console.log('[PAYD] round 1 spots:', spots.length);
-
-  if (spots.length === 0 && radiusMeters <= 5000) {
-    const bigger = Math.min(radiusMeters * 3, 10000);
-    showToast(`Expanding to ${Math.round(bigger / 1000)} km…`, 'info');
-    spots = await tryNominatim(bigger);
-    console.log('[PAYD] round 2 spots:', spots.length);
+  for (const mirror of OVERPASS_MIRRORS) {
+    try {
+      const r = await fetch(mirror, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(ovQuery)}`,
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        const elements = data.elements || [];
+        console.log('[PAYD] Overpass', mirror, 'elements:', elements.length);
+        if (elements.length > 0) {
+          osmSpots = elements
+            .map(el => convertOSMToParking(el, lat, lng))
+            .filter(p => p && p.lat && p.lng);
+          console.log('[PAYD] Overpass converted:', osmSpots.length);
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('[PAYD] Overpass mirror failed:', mirror, e.message);
+    }
   }
-  if (spots.length === 0) {
-    spots = await tryNominatim(20000);
-    console.log('[PAYD] round 3 (20km) spots:', spots.length);
+
+  // ── 2. Server-side Nominatim fallback (Railway can reach this) ─────────────
+  let nomSpots = [];
+  if (osmSpots.length === 0) {
+    showToast('Trying backup data source…', 'info');
+    const tryNom = async (r) => {
+      const res = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${r}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      if (!d.success) throw new Error(d.message || 'Nominatim failed');
+      return d.data || [];
+    };
+    try {
+      let raw = await tryNom(radiusMeters);
+      if (raw.length === 0 && radiusMeters <= 5000) raw = await tryNom(Math.min(radiusMeters * 3, 10000));
+      if (raw.length === 0) raw = await tryNom(20000);
+      nomSpots = convertNominatimSpots(raw);
+      console.log('[PAYD] Nominatim raw:', raw.length, 'converted:', nomSpots.length);
+    } catch (e) {
+      console.warn('[PAYD] Nominatim also failed:', e.message);
+    }
   }
 
-  const converted = convertNominatimSpots(spots);
-  console.log('[PAYD] converted:', converted.length, 'first:', spots[0] && spots[0].name);
+  const spots = osmSpots.length > 0 ? osmSpots : nomSpots;
+
+  // ── Debug banner (temp) ────────────────────────────────────────────────────
+  const dbg = document.getElementById('_paydDbg') || (() => {
+    const el = document.createElement('div');
+    el.id = '_paydDbg';
+    el.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1a3c5e;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;z-index:99999;text-align:center;max-width:92vw;box-shadow:0 4px 20px rgba(0,0,0,0.5);line-height:1.6;';
+    document.body.appendChild(el);
+    return el;
+  })();
+  const srcLabel = osmSpots.length > 0
+    ? `<span style="color:#4caf50">Overpass ✓</span>`
+    : nomSpots.length > 0
+      ? `<span style="color:#4caf50">Nominatim ✓</span>`
+      : `<span style="color:#f44336">both 0</span>`;
+  dbg.innerHTML = `<strong>v15 DEBUG</strong> ${srcLabel}<br>` +
+    `lat=${lat.toFixed(4)}, lng=${lng.toFixed(4)}, r=${radiusMeters}m<br>` +
+    `Overpass: <strong style="color:${osmSpots.length>0?'#4caf50':'#f44336'}">${osmSpots.length}</strong> &nbsp;|&nbsp; ` +
+    `Nom: <strong style="color:${nomSpots.length>0?'#4caf50':'#f44336'}">${nomSpots.length}</strong> &nbsp;|&nbsp; ` +
+    `Total: <strong>${spots.length}</strong>` +
+    `<button onclick="this.parentElement.remove()" style="margin-left:8px;background:none;border:1px solid #fff;color:#fff;border-radius:4px;padding:1px 7px;cursor:pointer;">✕</button>`;
+
   showToast(
-    converted.length > 0 ? `Found ${converted.length} parking spots.` : 'No parking found — try a larger radius.',
-    converted.length > 0 ? 'success' : 'warning'
+    spots.length > 0 ? `Found ${spots.length} parking spots.` : 'No parking found — try a larger radius.',
+    spots.length > 0 ? 'success' : 'warning'
   );
-  return converted;
+  return spots;
 }
 
 // Backward-compat alias used in live-tracking code

@@ -3,11 +3,12 @@
 
 const express = require('express');
 const router = express.Router();
-const Anthropic = require('@anthropic-ai/sdk');
+const _anthropicMod = require('@anthropic-ai/sdk');
+const AnthropicCtor = _anthropicMod.default || _anthropicMod;
 
 let client = null;
 function getClient() {
-  if (!client) client = new Anthropic.default({ apiKey: process.env.ANTHROPIC_API_KEY });
+  if (!client) client = new AnthropicCtor({ apiKey: process.env.ANTHROPIC_API_KEY });
   return client;
 }
 

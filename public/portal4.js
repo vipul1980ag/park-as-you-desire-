@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v18 loaded');
+console.log('[PAYD] portal4.js v27 loaded');
 
 const API = '/api';
 
@@ -458,31 +458,46 @@ const PRIO_BTNS = {
 function applyPriorityStyle(value, groupName) {
   (PRIO_BTNS[groupName] || []).forEach(([id, val]) => {
     const el = document.getElementById(id);
-    if (!el) return;
+    if (!el) { console.warn('[PAYD] priority btn not found:', id); return; }
     const sel = val === value;
     el.classList.toggle('selected', sel);
-    el.setAttribute('style', sel
-      ? 'background:#1a3c5e!important;color:#fff!important;border-color:#1a3c5e!important;'
-      : '');
+    if (sel) {
+      el.style.setProperty('background', '#1a3c5e', 'important');
+      el.style.setProperty('color', '#ffffff', 'important');
+      el.style.setProperty('border-color', '#1a3c5e', 'important');
+    } else {
+      el.style.removeProperty('background');
+      el.style.removeProperty('color');
+      el.style.removeProperty('border-color');
+    }
     const pt = el.querySelector('.p-text');
-    if (pt) pt.setAttribute('style', sel ? 'color:#fff!important;' : '');
+    if (pt) {
+      if (sel) pt.style.setProperty('color', '#ffffff', 'important');
+      else pt.style.removeProperty('color');
+    }
   });
 }
 
 function wirePriorityOptions() {
-  // Apply initial highlight to the default selection on page load
+  // Belt-and-braces: HTML onclick AND addEventListener both call selectPriority
+  Object.entries(PRIO_BTNS).forEach(([groupName, btns]) => {
+    btns.forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('click', () => selectPriority(val, groupName));
+    });
+  });
   applyPriorityStyle('distance', 'priority');
   applyPriorityStyle('distance', 'trackPriority');
 }
 
 function selectPriority(value, groupName) {
+  console.log('[PAYD] selectPriority:', value, groupName);
   applyPriorityStyle(value, groupName);
+  showToast(`Priority: ${value}`, 'info');
   if (allParkings.length > 0) {
     applyPrioritySort(value);
     filteredParkings = [...allParkings];
     renderResults(filteredParkings);
-    const labels = { distance: 'Near to Destination', cost: 'Cost Per Hour', type: 'Parking Type' };
-    showToast(`Sorted by: ${labels[value] || value}`, 'info');
   }
 }
 

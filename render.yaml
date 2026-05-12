@@ -2,7 +2,7 @@ services:
   - type: web
     name: park-as-you-desire
     env: node
-    buildCommand: npm install
+    buildCommand: npm install --omit=dev
     startCommand: npm start
     envVars:
       - key: NODE_ENV

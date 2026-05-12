@@ -453,8 +453,15 @@ function wirePriorityOptions() { /* visual selection now handled by selectPriori
 
 function selectPriority(value, radioName) {
   document.querySelectorAll(`.priority-option input[name="${radioName}"]`).forEach(r => {
-    r.checked = r.value === value;
-    r.closest('.priority-option').classList.toggle('selected', r.value === value);
+    const sel = r.value === value;
+    r.checked = sel;
+    const lbl = r.closest('.priority-option');
+    lbl.classList.toggle('selected', sel);
+    lbl.style.background   = sel ? '#1a3c5e' : '';
+    lbl.style.color        = sel ? '#fff'    : '';
+    lbl.style.borderColor  = sel ? '#1a3c5e' : '';
+    const pt = lbl.querySelector('.p-text');
+    if (pt) pt.style.color = sel ? '#fff' : '';
   });
   if (allParkings.length > 0) {
     applyPrioritySort(value);
@@ -626,9 +633,18 @@ async function lookupVehicle() {
     document.getElementById('viHgt').textContent   = v.height_m ? `${v.height_m} m` : '—';
     document.getElementById('viWgt').textContent   = v.weight_t ? `${v.weight_t} t`  : '—';
     document.getElementById('viNote').textContent  = v.notes || '';
+    // Ensure vehicleBody is open — the card is inside it and won't be visible otherwise
+    const body = document.getElementById('vehicleBody');
+    if (body && body.style.display === 'none') {
+      body.style.display = 'block';
+      const arrow = document.getElementById('vehicleToggleArrow');
+      if (arrow) arrow.textContent = '▲';
+      const toggle = document.getElementById('vehicleToggle');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    }
     const card = document.getElementById('vehicleInfoCard');
     card.style.display = 'block';
-    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
 
     showToast(`${icon} ${v.make} ${v.model} — dimensions loaded`, 'success');
   } catch (err) {

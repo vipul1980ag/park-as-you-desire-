@@ -576,6 +576,7 @@ function toggleVehicleSection() {
   body.style.display  = open ? 'block' : 'none';
   arrow.textContent   = open ? '▲' : '▼';
   btn.setAttribute('aria-expanded', String(open));
+  if (open) body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function selectVehicleType(el) {

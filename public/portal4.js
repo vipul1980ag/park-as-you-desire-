@@ -133,6 +133,29 @@ document.addEventListener('DOMContentLoaded', () => {
   setupAllAutocompletes();
   autoDetectGPS();
   loadAllParkings();
+
+  // Live re-filter when parking type dropdown changes
+  const liveTypeFilter = (selectId) => {
+    document.getElementById(selectId)?.addEventListener('change', () => {
+      if (allParkings.length === 0) return;
+      const tf = document.getElementById(selectId).value;
+      filteredParkings = applyTypeFilter([...allParkings], tf);
+      renderResults(filteredParkings);
+      if (tf) showToast(`Showing: ${tf.replace('_', ' ')} parking`, 'info');
+    });
+  };
+  liveTypeFilter('plannerType');
+  liveTypeFilter('trackType');
+
+  // Live re-sort when priority radio changes
+  document.querySelectorAll('input[name="priority"], input[name="trackPriority"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (allParkings.length === 0) return;
+      applyPrioritySort(radio.value);
+      filteredParkings = [...allParkings];
+      renderResults(filteredParkings);
+    });
+  });
 });
 
 /* ============================================================
@@ -1094,7 +1117,10 @@ function applyFilter(filter, chipEl) {
 
   switch (filter) {
     case 'cheapest':
-      results.sort((a, b) => (a.costPerHour || 0) - (b.costPerHour || 0));
+      results.sort((a, b) => {
+        const cost = p => p.costPerHour === 0 ? 0 : (p.costPerHour > 0 ? p.costPerHour : Infinity);
+        return cost(a) - cost(b);
+      });
       break;
     case 'nearest':
       results = results.filter(p => p.distance != null);
@@ -1105,13 +1131,21 @@ function applyFilter(filter, chipEl) {
       }
       break;
     case 'private':
-      results = results.filter(p => parseInt(p.type, 10) === 3 ||
-        (p.typeName && p.typeName.toLowerCase().includes('private')));
+      results = results.filter(p => {
+        const tn = (p.typeName || '').toLowerCase();
+        const pt = (typeof p.type === 'string' ? p.type : '').toLowerCase();
+        return parseInt(p.type, 10) === 3 || tn.includes('private') || pt === 'private';
+      });
+      if (results.length === 0) { results = [...allParkings]; showToast('No private spots found.', 'info'); }
       break;
     case 'public':
-      results = results.filter(p => parseInt(p.type, 10) === 2 ||
-        (p.typeName && (p.typeName.toLowerCase().includes('street') ||
-                        p.typeName.toLowerCase().includes('public'))));
+      results = results.filter(p => {
+        const tn = (p.typeName || '').toLowerCase();
+        const pt = (typeof p.type === 'string' ? p.type : '').toLowerCase();
+        return parseInt(p.type, 10) === 2 || tn.includes('street') || tn.includes('public') ||
+               pt === 'street_side' || pt === 'on_street' || pt === 'surface';
+      });
+      if (results.length === 0) { results = [...allParkings]; showToast('No public spots found.', 'info'); }
       break;
     default:
       break;
@@ -1126,7 +1160,8 @@ function applyFilter(filter, chipEl) {
    ============================================================ */
 function applyPrioritySort(priority) {
   if (priority === 'cost') {
-    allParkings.sort((a, b) => (a.costPerHour || 0) - (b.costPerHour || 0));
+    const cost = p => p.costPerHour === 0 ? 0 : (p.costPerHour > 0 ? p.costPerHour : Infinity);
+    allParkings.sort((a, b) => cost(a) - cost(b));
   } else if (priority === 'distance') {
     allParkings.sort((a, b) => {
       if (a.distance == null && b.distance == null) return 0;

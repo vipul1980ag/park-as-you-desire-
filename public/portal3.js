@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal3.js v20260512-NOM loaded — Overpass+Nominatim dual-source');
+console.log('[PAYD] portal3.js v20260512-NOM2 loaded — fallthrough fix + console logging');
 
 const API = '/api';
 
@@ -714,54 +714,79 @@ function convertNominatimSpots(spots) {
 }
 
 async function fetchParkings(lat, lng, radiusMeters) {
+  console.log('[PAYD] fetchParkings lat=%s lng=%s r=%s', lat, lng, radiusMeters);
   showToast(`Searching parking near ${lat.toFixed(4)}, ${lng.toFixed(4)}…`, 'info');
 
   // ── 1. Try browser → Overpass (CORS-open, 3 mirrors) ─────────────────────
-  try {
-    const query = buildOverpassQuery(radiusMeters, lat, lng);
-    let elements = [];
+  const tryOverpass = async (r) => {
+    const query = buildOverpassQuery(r, lat, lng);
     for (const mirror of OVERPASS_MIRRORS) {
       try {
         const res = await fetch(mirror, {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: `data=${encodeURIComponent(query)}`,
+          signal: AbortSignal.timeout(18000),
         });
-        if (res.ok) { const d = await res.json(); elements = d.elements || []; break; }
-        console.warn(`Overpass mirror ${mirror} returned ${res.status}`);
-      } catch (e) { console.warn(`Overpass mirror failed (${mirror}):`, e.message); }
+        console.log('[PAYD] Overpass', mirror.split('/')[2], 'status:', res.status);
+        if (res.ok) {
+          const d = await res.json();
+          const els = d.elements || [];
+          console.log('[PAYD] Overpass elements returned:', els.length);
+          return els;
+        }
+      } catch (e) {
+        console.warn('[PAYD] Overpass mirror failed (' + mirror.split('/')[2] + '):', e.message);
+      }
     }
+    return [];
+  };
 
-    if (elements.length > 0) {
-      const parkings = elements.map(el => convertOSMToParking(el, lat, lng)).filter(p => p.lat && p.lng);
-      showToast(`Found ${parkings.length} parking spots.`, 'success');
+  try {
+    let elements = await tryOverpass(radiusMeters);
+    // Auto-expand if empty on small radius
+    if (elements.length === 0 && radiusMeters <= 3000) {
+      elements = await tryOverpass(Math.min(radiusMeters * 3, 10000));
+    }
+    const parkings = elements.map(el => convertOSMToParking(el, lat, lng)).filter(p => p.lat && p.lng);
+    console.log('[PAYD] Overpass → valid parking objects:', parkings.length);
+    if (parkings.length > 0) {
+      showToast(`Found ${parkings.length} parking spots (OSM).`, 'success');
       return applyVehicleFilter(parkings);
     }
-    console.warn('Overpass returned 0 elements — trying server-side Nominatim');
+    // Fall through to Nominatim even if Overpass returned raw elements — they had no coords
+    console.warn('[PAYD] Overpass gave 0 usable spots → Nominatim');
   } catch (e) {
-    console.warn('Overpass error — trying server-side Nominatim:', e.message);
+    console.warn('[PAYD] Overpass error → Nominatim:', e.message);
   }
 
   // ── 2. Server-side Nominatim fallback (Railway can reach Nominatim) ───────
-  showToast('Trying alternative source (Nominatim)…', 'info');
-  const nominatimFetch = async (r) => {
+  showToast('Searching via Nominatim…', 'info');
+  const tryNominatim = async (r) => {
+    console.log('[PAYD] Nominatim r=' + r);
     const res = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${r}`);
+    console.log('[PAYD] Nominatim HTTP', res.status);
     if (!res.ok) throw new Error(`Server HTTP ${res.status}`);
     const data = await res.json();
+    console.log('[PAYD] Nominatim count:', data.count, 'success:', data.success);
     if (!data.success) throw new Error(data.message || 'Nominatim search failed');
     return data.data || [];
   };
 
-  let spots = await nominatimFetch(radiusMeters);
+  let spots = await tryNominatim(radiusMeters);
   if (spots.length === 0 && radiusMeters <= 5000) {
     const bigger = Math.min(radiusMeters * 3, 10000);
     showToast(`Expanding search to ${Math.round(bigger / 1000)} km…`, 'info');
-    spots = await nominatimFetch(bigger);
+    spots = await tryNominatim(bigger);
   }
-  if (spots.length === 0) spots = await nominatimFetch(20000);
+  if (spots.length === 0) spots = await tryNominatim(20000);
 
-  showToast(spots.length > 0 ? `Found ${spots.length} parking spots.` : 'No parking found. Try a larger radius.', spots.length > 0 ? 'success' : 'warning');
-  return convertNominatimSpots(spots);
+  console.log('[PAYD] Final Nominatim spots:', spots.length);
+  const converted = convertNominatimSpots(spots);
+  console.log('[PAYD] After convert:', converted.length);
+
+  showToast(converted.length > 0 ? `Found ${converted.length} parking spots.` : 'No parking found — try a larger radius.', converted.length > 0 ? 'success' : 'warning');
+  return converted;
 }
 
 // Backward-compat alias used in live-tracking code

@@ -911,6 +911,7 @@ async function loadAllParkings() {
    SEARCH PARKING (Planner tab)
    ============================================================ */
 async function searchParking() {
+  showToast('v17 searchParking() called', 'info'); // DEBUG — remove after fix
   const type     = document.getElementById('plannerType').value;
   const radius   = parseInt(document.getElementById('plannerRadius').value) || 2000;
   const priority = document.querySelector('input[name="priority"]:checked')?.value || 'distance';
@@ -982,6 +983,7 @@ async function searchParking() {
    TRACK SEARCH (Track My Location tab)
    ============================================================ */
 async function trackSearch() {
+  showToast(`v17 trackSearch() called, userLat=${userLat}`, 'info'); // DEBUG
   if (userLat === null || userLng === null) {
     showToast('Please detect your location first.', 'warning');
     return;
@@ -1020,6 +1022,7 @@ async function trackSearch() {
    FIND PARKING NEAR MY CURRENT LOCATION (Planner tab quick button)
    ============================================================ */
 async function findParkingNearMe() {
+  showToast('v17 findParkingNearMe() called', 'info'); // DEBUG
   const btn = document.getElementById('nearMeBtn');
   setButtonLoading(btn, true, '📍 Find Parking Near My Location');
 
@@ -1031,9 +1034,12 @@ async function findParkingNearMe() {
 
   navigator.geolocation.getCurrentPosition(
     async pos => {
+      try {
       const lat    = pos.coords.latitude;
       const lng    = pos.coords.longitude;
       const locStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+
+      showToast(`v17 GPS ok: ${locStr}`, 'info'); // DEBUG
 
       // Update FROM field and map marker
       userLat = lat; userLng = lng;
@@ -1068,6 +1074,10 @@ async function findParkingNearMe() {
       if (map) map.setView([lat, lng], 14);
       showLoading(false);
       setButtonLoading(btn, false, '📍 Find Parking Near My Location');
+      } catch (debugErr) {
+        showToast(`v17 DEBUG ERROR: ${debugErr.message}`, 'error'); // DEBUG
+        setButtonLoading(btn, false, '📍 Find Parking Near My Location');
+      }
     },
     err => {
       let msg = 'Could not detect location.';

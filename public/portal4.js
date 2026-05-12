@@ -147,15 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
   liveTypeFilter('plannerType');
   liveTypeFilter('trackType');
 
-  // Live re-sort when priority radio changes
-  document.querySelectorAll('input[name="priority"], input[name="trackPriority"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      if (allParkings.length === 0) return;
-      applyPrioritySort(radio.value);
-      filteredParkings = [...allParkings];
-      renderResults(filteredParkings);
-    });
-  });
 });
 
 /* ============================================================
@@ -461,12 +452,19 @@ function autoDetectGPS() {
 function wirePriorityOptions() {
   document.querySelectorAll('.priority-option').forEach(opt => {
     opt.addEventListener('click', function() {
-      const name = this.querySelector('input[type="radio"]').name;
+      const radio = this.querySelector('input[type="radio"]');
+      const name  = radio.name;
       document.querySelectorAll(`.priority-option input[name="${name}"]`).forEach(r => {
         r.closest('.priority-option').classList.remove('selected');
       });
       this.classList.add('selected');
-      this.querySelector('input[type="radio"]').checked = true;
+      radio.checked = true;
+      // Immediately re-sort currently displayed results
+      if (allParkings.length > 0) {
+        applyPrioritySort(radio.value);
+        filteredParkings = [...allParkings];
+        renderResults(filteredParkings);
+      }
     });
   });
 }

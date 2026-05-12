@@ -3,14 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.error('[PAYD] portal4.js v18 LOADED ✓ — if you see this in DevTools the new JS is running');
-// Permanent on-screen load indicator — proves new JS file loaded
-window.addEventListener('DOMContentLoaded', () => {
-  const tag = document.createElement('div');
-  tag.style.cssText = 'position:fixed;top:50px;right:8px;background:#0d5c1a;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:12px;z-index:99999;opacity:0.9;pointer-events:none;';
-  tag.textContent = 'JS v18 ✓';
-  document.body.appendChild(tag);
-}, { once: true });
+console.log('[PAYD] portal4.js v18 loaded');
 
 const API = '/api';
 
@@ -585,8 +578,11 @@ async function lookupVehicle() {
   btn.disabled = true;
   btn.textContent = '⏳';
 
+  const ctrl = new AbortController();
+  const tid  = setTimeout(() => ctrl.abort(), 20000);
   try {
-    const res  = await fetch(`/api/vehicle/lookup?q=${encodeURIComponent(q)}`);
+    const res  = await fetch(`/api/vehicle/lookup?q=${encodeURIComponent(q)}`, { signal: ctrl.signal });
+    clearTimeout(tid);
     const data = await res.json();
     if (!data.success) throw new Error(data.message || 'Not found');
 
@@ -616,7 +612,9 @@ async function lookupVehicle() {
 
     showToast(`${icon} ${v.make} ${v.model} — dimensions loaded`, 'success');
   } catch (err) {
-    showToast(`Vehicle not found: ${err.message}`, 'error');
+    clearTimeout(tid);
+    const msg = err.name === 'AbortError' ? 'Request timed out — please try again.' : err.message;
+    showToast(`Vehicle lookup failed: ${msg}`, 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = '🔍 Find';
@@ -730,9 +728,7 @@ function convertNominatimSpots(spots) {
   });
 }
 
-async function fetchParkings(lat, lng, radiusMeters) {
-  console.error('[PAYD v18] fetchParkings called lat=%s lng=%s r=%s', lat, lng, radiusMeters);
-
+async function fetchParkings(lat, lng, radiusMeters, typeFilter) {
   // ── STEP 1: Nominatim via server proxy (fast, reliable, ~1-2s) ──────────────
   let nomSpots = [];
   try {
@@ -741,34 +737,40 @@ async function fetchParkings(lat, lng, radiusMeters) {
     const body = await r.json().catch(() => null);
     if (r.ok && body && body.success) {
       nomSpots = convertNominatimSpots(body.data || []);
-      console.error('[PAYD v18] Nominatim returned %d spots', nomSpots.length);
-    } else {
-      console.error('[PAYD v18] Nominatim error: status=%s msg=%s', r.status, body && body.message);
     }
   } catch (e) {
-    console.error('[PAYD v18] Nominatim fetch exception:', e.message);
+    console.warn('[PAYD] Nominatim exception:', e.message);
   }
 
-  // If Nominatim already has results, return them immediately so the UI updates fast.
-  // Then try Overpass in the background to supplement if needed.
   if (nomSpots.length > 0) {
-    showToast(`Found ${nomSpots.length} parking spots.`, 'success');
-    // Fire-and-forget Overpass to potentially add more spots later
-    tryOverpassBackground(lat, lng, radiusMeters, nomSpots);
-    return nomSpots;
+    const filtered = applyTypeFilter(nomSpots, typeFilter);
+    tryOverpassBackground(lat, lng, radiusMeters, typeFilter, nomSpots);
+    return filtered;
   }
 
-  // ── STEP 2: Overpass fallback (only if Nominatim found nothing) ─────────────
+  // ── STEP 2: Overpass fallback ────────────────────────────────────────────────
   showToast('Trying OpenStreetMap direct…', 'info');
   const ovSpots = await tryOverpassDirect(lat, lng, radiusMeters);
-  const spots = ovSpots.length > 0 ? ovSpots : nomSpots;
+  return applyTypeFilter(ovSpots.length > 0 ? ovSpots : nomSpots, typeFilter);
+}
 
-  if (spots.length === 0) {
-    showToast('No parking found in this area. Try a larger radius.', 'warning');
-  } else {
-    showToast(`Found ${spots.length} parking spots.`, 'success');
+function applyTypeFilter(spots, typeFilter) {
+  if (!typeFilter) return spots;
+  const filtered = spots.filter(p => matchesTypeFilter(p, typeFilter));
+  return filtered.length > 0 ? filtered : spots; // fall back to all if filter too strict
+}
+
+function matchesTypeFilter(p, typeFilter) {
+  const tn = (p.typeName || '').toLowerCase();
+  const pt = (typeof p.type === 'string' ? p.type : '').toLowerCase();
+  switch (typeFilter) {
+    case 'surface':      return tn.includes('surface') || tn.includes('car park') || tn.includes('open') || pt === 'surface';
+    case 'multi-storey': return tn.includes('multi') || tn.includes('storey') || pt === 'multi-storey';
+    case 'underground':  return tn.includes('underground') || tn.includes('basement') || pt === 'underground';
+    case 'street_side':  return tn.includes('street') || pt === 'street_side' || pt === 'on_street';
+    case 'private':      return tn.includes('private') || pt === 'private';
+    default:             return true;
   }
-  return spots;
 }
 
 function tryOverpassDirect(lat, lng, radiusMeters) {
@@ -792,13 +794,14 @@ function tryOverpassDirect(lat, lng, radiusMeters) {
   });
 }
 
-function tryOverpassBackground(lat, lng, radiusMeters, existingSpots) {
+function tryOverpassBackground(lat, lng, radiusMeters, typeFilter, existingSpots) {
   tryOverpassDirect(lat, lng, radiusMeters).then(ovSpots => {
-    if (ovSpots.length > existingSpots.length) {
-      allParkings = ovSpots;
+    const filtered = applyTypeFilter(ovSpots, typeFilter);
+    if (filtered.length > existingSpots.length) {
+      allParkings = filtered;
       filteredParkings = [...allParkings];
       renderResults(filteredParkings);
-      showToast(`Updated: ${ovSpots.length} spots from OpenStreetMap.`, 'info');
+      showToast(`Updated: ${filtered.length} spots from OpenStreetMap.`, 'info');
     }
   }).catch(() => {});
 }
@@ -904,8 +907,6 @@ async function loadAllParkings() {
    SEARCH PARKING (Planner tab)
    ============================================================ */
 async function searchParking() {
-  console.error('[PAYD v18] searchParking() CALLED'); // DEBUG
-  showToast('v18 searchParking() called', 'info'); // DEBUG
   const type     = document.getElementById('plannerType').value;
   const radius   = parseInt(document.getElementById('plannerRadius').value) || 2000;
   const priority = document.querySelector('input[name="priority"]:checked')?.value || 'distance';
@@ -977,8 +978,6 @@ async function searchParking() {
    TRACK SEARCH (Track My Location tab)
    ============================================================ */
 async function trackSearch() {
-  console.error('[PAYD v18] trackSearch() CALLED, userLat=', userLat); // DEBUG
-  showToast(`v18 trackSearch() called, userLat=${userLat}`, 'info'); // DEBUG
   if (userLat === null || userLng === null) {
     showToast('Please detect your location first.', 'warning');
     return;
@@ -1017,8 +1016,6 @@ async function trackSearch() {
    FIND PARKING NEAR MY CURRENT LOCATION (Planner tab quick button)
    ============================================================ */
 async function findParkingNearMe() {
-  console.error('[PAYD v18] findParkingNearMe() CALLED'); // DEBUG
-  showToast('v18 findParkingNearMe() called', 'info'); // DEBUG
   const btn = document.getElementById('nearMeBtn');
   setButtonLoading(btn, true, '📍 Find Parking Near My Location');
 
@@ -1034,8 +1031,6 @@ async function findParkingNearMe() {
       const lat    = pos.coords.latitude;
       const lng    = pos.coords.longitude;
       const locStr = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-
-      showToast(`v17 GPS ok: ${locStr}`, 'info'); // DEBUG
 
       // Update FROM field and map marker
       userLat = lat; userLng = lng;
@@ -1140,7 +1135,15 @@ function applyPrioritySort(priority) {
       return a.distance - b.distance;
     });
   } else if (priority === 'type') {
-    allParkings.sort((a, b) => (a.type || 9) - (b.type || 9));
+    const TYPE_ORDER = { underground: 1, 'multi-storey': 2, surface: 3, street_side: 4, on_street: 4, private: 5 };
+    allParkings.sort((a, b) => {
+      const aNum = parseInt(a.type, 10);
+      const bNum = parseInt(b.type, 10);
+      if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+      const aOrd = TYPE_ORDER[String(a.type).toLowerCase()] || 9;
+      const bOrd = TYPE_ORDER[String(b.type).toLowerCase()] || 9;
+      return aOrd - bOrd;
+    });
   }
 }
 

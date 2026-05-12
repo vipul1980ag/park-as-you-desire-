@@ -93,17 +93,17 @@
         <div class="priority-section">
           <span class="priority-label">Priority</span>
           <div class="priority-options">
-            <label class="priority-option selected" id="prio-dest">
+            <label class="priority-option selected" id="prio-dest" onclick="selectPriority('distance','priority')">
               <input type="radio" name="priority" value="distance" checked />
               <span class="p-icon">🎯</span>
               <span class="p-text">Near to Destination</span>
             </label>
-            <label class="priority-option" id="prio-cost">
+            <label class="priority-option" id="prio-cost" onclick="selectPriority('cost','priority')">
               <input type="radio" name="priority" value="cost" />
               <span class="p-icon">💰</span>
               <span class="p-text">Cost Per Hour / Day</span>
             </label>
-            <label class="priority-option" id="prio-type">
+            <label class="priority-option" id="prio-type" onclick="selectPriority('type','priority')">
               <input type="radio" name="priority" value="type" />
               <span class="p-icon">🅿️</span>
               <span class="p-text">Parking Type</span>
@@ -224,17 +224,17 @@
         <div class="priority-section">
           <span class="priority-label">Priority</span>
           <div class="priority-options">
-            <label class="priority-option selected" id="tprio-dest">
+            <label class="priority-option selected" id="tprio-dest" onclick="selectPriority('distance','trackPriority')">
               <input type="radio" name="trackPriority" value="distance" checked />
               <span class="p-icon">🎯</span>
               <span class="p-text">Near to Destination</span>
             </label>
-            <label class="priority-option" id="tprio-cost">
+            <label class="priority-option" id="tprio-cost" onclick="selectPriority('cost','trackPriority')">
               <input type="radio" name="trackPriority" value="cost" />
               <span class="p-icon">💰</span>
               <span class="p-text">Cost Per Hour / Day</span>
             </label>
-            <label class="priority-option" id="tprio-type">
+            <label class="priority-option" id="tprio-type" onclick="selectPriority('type','trackPriority')">
               <input type="radio" name="trackPriority" value="type" />
               <span class="p-icon">🅿️</span>
               <span class="p-text">Parking Type</span>
@@ -408,7 +408,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v19</div>
-<script src="portal4.js?v=20260512h"></script>
+<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v20</div>
+<script src="portal4.js?v=20260512i"></script>
 </body>
 </html>

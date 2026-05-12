@@ -449,24 +449,18 @@ function autoDetectGPS() {
 /* ============================================================
    PRIORITY RADIO WIRING
    ============================================================ */
-function wirePriorityOptions() {
-  document.querySelectorAll('.priority-option').forEach(opt => {
-    opt.addEventListener('click', function() {
-      const radio = this.querySelector('input[type="radio"]');
-      const name  = radio.name;
-      document.querySelectorAll(`.priority-option input[name="${name}"]`).forEach(r => {
-        r.closest('.priority-option').classList.remove('selected');
-      });
-      this.classList.add('selected');
-      radio.checked = true;
-      // Immediately re-sort currently displayed results
-      if (allParkings.length > 0) {
-        applyPrioritySort(radio.value);
-        filteredParkings = [...allParkings];
-        renderResults(filteredParkings);
-      }
-    });
+function wirePriorityOptions() { /* visual selection now handled by selectPriority() via onclick */ }
+
+function selectPriority(value, radioName) {
+  document.querySelectorAll(`.priority-option input[name="${radioName}"]`).forEach(r => {
+    r.checked = r.value === value;
+    r.closest('.priority-option').classList.toggle('selected', r.value === value);
   });
+  if (allParkings.length > 0) {
+    applyPrioritySort(value);
+    filteredParkings = [...allParkings];
+    renderResults(filteredParkings);
+  }
 }
 
 /* ============================================================

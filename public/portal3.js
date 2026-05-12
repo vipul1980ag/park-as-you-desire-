@@ -713,12 +713,6 @@ function convertNominatimSpots(spots) {
   });
 }
 
-const OVERPASS_MIRRORS = [
-  'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
-  'https://overpass.openstreetmap.ru/api/interpreter',
-];
-
 async function fetchParkings(lat, lng, radiusMeters) {
   console.log('[PAYD] fetchParkings v15 lat=%s lng=%s r=%s', lat, lng, radiusMeters);
   showToast(`Searching parking near ${lat.toFixed(4)}, ${lng.toFixed(4)}…`, 'info');

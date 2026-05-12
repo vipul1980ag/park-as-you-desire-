@@ -125,6 +125,16 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dateInput) dateInput.value = now.toISOString().slice(0, 10);
   if (timeInput) timeInput.value = now.toTimeString().slice(0, 5);
 
+  // Wire buttons via addEventListener as a belt-and-braces backup to the HTML onclick attrs
+  const bindBtn = (id, fn) => { const el = document.getElementById(id); if (el) el.addEventListener('click', fn); };
+  bindBtn('searchBtn',      searchParking);
+  bindBtn('nearMeBtn',      findParkingNearMe);
+  bindBtn('trackSearchBtn', trackSearch);
+  bindBtn('vehicleLookupBtn', lookupVehicle);
+  bindBtn('detectBtn',      () => getGPSLocation('track'));
+  bindBtn('plannerGpsBtn',  () => getGPSLocation('planner'));
+  bindBtn('destGpsBtn',     () => getGPSLocation('dest'));
+
   wirePriorityOptions();
   initMap();
   setupAllAutocompletes();
@@ -721,100 +731,76 @@ function convertNominatimSpots(spots) {
 }
 
 async function fetchParkings(lat, lng, radiusMeters) {
-  console.log('[PAYD] v17 fetchParkings lat=%s lng=%s r=%s', lat, lng, radiusMeters);
+  console.error('[PAYD v18] fetchParkings called lat=%s lng=%s r=%s', lat, lng, radiusMeters);
 
-  // Show debug banner immediately so user can see live status
-  const dbg = document.getElementById('_paydDbg') || (() => {
-    const el = document.createElement('div');
-    el.id = '_paydDbg';
-    el.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#102a42;color:#fff;font-size:12px;padding:10px 16px;border-radius:8px;z-index:99999;text-align:center;max-width:94vw;box-shadow:0 4px 20px rgba(0,0,0,0.6);line-height:1.8;min-width:280px;';
-    document.body.appendChild(el);
-    return el;
-  })();
-  const updDbg = (ovTxt, nomTxt, total) => {
-    dbg.innerHTML = `<strong>v18 SEARCH DIAGNOSTICS</strong><br>` +
-      `📍 lat=${lat.toFixed(4)}, lng=${lng.toFixed(4)}<br>` +
-      `🌐 Overpass: ${ovTxt}<br>` +
-      `🗺️ Nominatim: ${nomTxt}<br>` +
-      `✅ Total spots: <strong>${total}</strong>` +
-      `<button onclick="this.parentElement.remove()" style="display:block;margin:6px auto 0;background:none;border:1px solid #aaa;color:#fff;border-radius:4px;padding:2px 10px;cursor:pointer">✕ Close</button>`;
-  };
-  updDbg('⏳ trying…', '⏳ trying…', '…');
+  // ── STEP 1: Nominatim via server proxy (fast, reliable, ~1-2s) ──────────────
+  let nomSpots = [];
+  try {
+    showToast('Searching via map data…', 'info');
+    const r = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${Math.min(radiusMeters, 10000)}`);
+    const body = await r.json().catch(() => null);
+    if (r.ok && body && body.success) {
+      nomSpots = convertNominatimSpots(body.data || []);
+      console.error('[PAYD v18] Nominatim returned %d spots', nomSpots.length);
+    } else {
+      console.error('[PAYD v18] Nominatim error: status=%s msg=%s', r.status, body && body.message);
+    }
+  } catch (e) {
+    console.error('[PAYD v18] Nominatim fetch exception:', e.message);
+  }
 
-  const ovQuery = `[out:json][timeout:20];(node["amenity"="parking"](around:${radiusMeters},${lat},${lng});way["amenity"="parking"](around:${radiusMeters},${lat},${lng});node["landuse"="parking"](around:${radiusMeters},${lat},${lng});way["landuse"="parking"](around:${radiusMeters},${lat},${lng}););out center;`;
+  // If Nominatim already has results, return them immediately so the UI updates fast.
+  // Then try Overpass in the background to supplement if needed.
+  if (nomSpots.length > 0) {
+    showToast(`Found ${nomSpots.length} parking spots.`, 'success');
+    // Fire-and-forget Overpass to potentially add more spots later
+    tryOverpassBackground(lat, lng, radiusMeters, nomSpots);
+    return nomSpots;
+  }
 
-  // ── Overpass: all mirrors in parallel ────────────────────────────────────────
-  let ovStatus = 'no response';
-  const tryOverpass = () => new Promise(resolve => {
+  // ── STEP 2: Overpass fallback (only if Nominatim found nothing) ─────────────
+  showToast('Trying OpenStreetMap direct…', 'info');
+  const ovSpots = await tryOverpassDirect(lat, lng, radiusMeters);
+  const spots = ovSpots.length > 0 ? ovSpots : nomSpots;
+
+  if (spots.length === 0) {
+    showToast('No parking found in this area. Try a larger radius.', 'warning');
+  } else {
+    showToast(`Found ${spots.length} parking spots.`, 'success');
+  }
+  return spots;
+}
+
+function tryOverpassDirect(lat, lng, radiusMeters) {
+  const ovQuery = buildOverpassQuery(radiusMeters, lat, lng);
+  return new Promise(resolve => {
     let done = false;
     let pending = OVERPASS_MIRRORS.length;
-    const errors = [];
     OVERPASS_MIRRORS.forEach(mirror => {
       const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 10000);
-      fetch(mirror, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `data=${encodeURIComponent(ovQuery)}`,
-        signal: ctrl.signal,
-      })
-      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
-      .then(data => {
-        clearTimeout(tid);
-        const els = (data && data.elements) || [];
-        if (els.length > 0 && !done) {
-          const spots = els.map(el => convertOSMToParking(el, lat, lng)).filter(p => p && p.lat && p.lng);
-          if (spots.length > 0) {
-            done = true; ovStatus = `${spots.length} spots`;
-            resolve(spots); return;
-          }
-        }
-        ovStatus = `0 elements from ${mirror.split('/')[2]}`;
-        if (--pending === 0 && !done) { done = true; resolve([]); }
-      })
-      .catch(e => {
-        clearTimeout(tid);
-        errors.push(`${mirror.split('/')[2]}: ${e.message}`);
-        ovStatus = errors.join('; ');
-        if (--pending === 0 && !done) { done = true; resolve([]); }
-      });
+      const tid  = setTimeout(() => ctrl.abort(), 8000);
+      fetch(mirror, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`data=${encodeURIComponent(ovQuery)}`, signal:ctrl.signal })
+        .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)))
+        .then(data => {
+          clearTimeout(tid);
+          const spots = ((data && data.elements) || []).map(el => convertOSMToParking(el, lat, lng)).filter(p => p && p.lat && p.lng);
+          if (spots.length > 0 && !done) { done = true; resolve(spots); }
+          else if (--pending === 0 && !done) { done = true; resolve([]); }
+        })
+        .catch(() => { clearTimeout(tid); if (--pending === 0 && !done) { done = true; resolve([]); } });
     });
   });
+}
 
-  // ── Nominatim server proxy ───────────────────────────────────────────────────
-  let nomStatus = 'not tried';
-  const tryNominatim = async () => {
-    try {
-      const r = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=10000`);
-      const body = await r.json().catch(() => null);
-      if (!r.ok) {
-        nomStatus = `Server error ${r.status}: ${body && body.message ? body.message : 'unknown'}`;
-        return [];
-      }
-      if (!body || !body.success) {
-        nomStatus = `API error: ${body && body.message ? body.message : 'no data'}`;
-        return [];
-      }
-      const raw = body.data || [];
-      const converted = convertNominatimSpots(raw);
-      nomStatus = `${raw.length} raw → ${converted.length} spots`;
-      return converted;
-    } catch (e) {
-      nomStatus = `fetch failed: ${e.message}`;
-      return [];
+function tryOverpassBackground(lat, lng, radiusMeters, existingSpots) {
+  tryOverpassDirect(lat, lng, radiusMeters).then(ovSpots => {
+    if (ovSpots.length > existingSpots.length) {
+      allParkings = ovSpots;
+      filteredParkings = [...allParkings];
+      renderResults(filteredParkings);
+      showToast(`Updated: ${ovSpots.length} spots from OpenStreetMap.`, 'info');
     }
-  };
-
-  // ── Race: show results as soon as first source responds with data ─────────────
-  const [osmSpots, nomSpots] = await Promise.all([tryOverpass(), tryNominatim()]);
-  const spots = osmSpots.length > 0 ? osmSpots : nomSpots;
-
-  updDbg(ovStatus, nomStatus, spots.length);
-  showToast(
-    spots.length > 0 ? `Found ${spots.length} parking spots.` : 'No parking found — see diagnostic banner.',
-    spots.length > 0 ? 'success' : 'warning'
-  );
-  return spots;
+  }).catch(() => {});
 }
 
 // Backward-compat alias used in live-tracking code

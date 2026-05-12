@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal3.js v20260512-v16 — parallel Overpass+Nominatim, AbortController');
+console.log('[PAYD] portal3.js v20260512-v17 — diagnostic banner, visible errors');
 
 const API = '/api';
 
@@ -714,77 +714,97 @@ function convertNominatimSpots(spots) {
 }
 
 async function fetchParkings(lat, lng, radiusMeters) {
-  console.log('[PAYD] v16 fetchParkings lat=%s lng=%s r=%s', lat, lng, radiusMeters);
-  showToast(`Searching parking near ${lat.toFixed(4)}, ${lng.toFixed(4)}…`, 'info');
+  console.log('[PAYD] v17 fetchParkings lat=%s lng=%s r=%s', lat, lng, radiusMeters);
+
+  // Show debug banner immediately so user can see live status
+  const dbg = document.getElementById('_paydDbg') || (() => {
+    const el = document.createElement('div');
+    el.id = '_paydDbg';
+    el.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);background:#102a42;color:#fff;font-size:12px;padding:10px 16px;border-radius:8px;z-index:99999;text-align:center;max-width:94vw;box-shadow:0 4px 20px rgba(0,0,0,0.6);line-height:1.8;min-width:280px;';
+    document.body.appendChild(el);
+    return el;
+  })();
+  const updDbg = (ovTxt, nomTxt, total) => {
+    dbg.innerHTML = `<strong>v17 SEARCH DIAGNOSTICS</strong><br>` +
+      `📍 lat=${lat.toFixed(4)}, lng=${lng.toFixed(4)}<br>` +
+      `🌐 Overpass: ${ovTxt}<br>` +
+      `🗺️ Nominatim: ${nomTxt}<br>` +
+      `✅ Total spots: <strong>${total}</strong>` +
+      `<button onclick="this.parentElement.remove()" style="display:block;margin:6px auto 0;background:none;border:1px solid #aaa;color:#fff;border-radius:4px;padding:2px 10px;cursor:pointer">✕ Close</button>`;
+  };
+  updDbg('⏳ trying…', '⏳ trying…', '…');
 
   const ovQuery = `[out:json][timeout:20];(node["amenity"="parking"](around:${radiusMeters},${lat},${lng});way["amenity"="parking"](around:${radiusMeters},${lat},${lng});node["landuse"="parking"](around:${radiusMeters},${lat},${lng});way["landuse"="parking"](around:${radiusMeters},${lat},${lng}););out center;`;
 
-  // ── Overpass: all 3 mirrors in parallel, resolve with first good result ──────
+  // ── Overpass: all mirrors in parallel ────────────────────────────────────────
+  let ovStatus = 'no response';
   const tryOverpass = () => new Promise(resolve => {
     let done = false;
     let pending = OVERPASS_MIRRORS.length;
+    const errors = [];
     OVERPASS_MIRRORS.forEach(mirror => {
       const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 12000);
+      const tid  = setTimeout(() => ctrl.abort(), 10000);
       fetch(mirror, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: `data=${encodeURIComponent(ovQuery)}`,
         signal: ctrl.signal,
       })
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(data => {
         clearTimeout(tid);
         const els = (data && data.elements) || [];
         if (els.length > 0 && !done) {
           const spots = els.map(el => convertOSMToParking(el, lat, lng)).filter(p => p && p.lat && p.lng);
           if (spots.length > 0) {
-            done = true;
-            console.log('[PAYD] Overpass OK:', mirror, spots.length);
+            done = true; ovStatus = `${spots.length} spots`;
             resolve(spots); return;
           }
         }
+        ovStatus = `0 elements from ${mirror.split('/')[2]}`;
         if (--pending === 0 && !done) { done = true; resolve([]); }
       })
       .catch(e => {
         clearTimeout(tid);
-        console.warn('[PAYD] Overpass mirror err:', mirror, e.message);
+        errors.push(`${mirror.split('/')[2]}: ${e.message}`);
+        ovStatus = errors.join('; ');
         if (--pending === 0 && !done) { done = true; resolve([]); }
       });
     });
   });
 
-  // ── Nominatim: server-side proxy, 10 km upfront (large enough for any city) ──
-  const tryNominatim = () =>
-    fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=10000`)
-    .then(r => r.ok ? r.json() : null)
-    .then(d => d && d.success ? convertNominatimSpots(d.data || []) : [])
-    .catch(e => { console.warn('[PAYD] Nominatim err:', e.message); return []; });
+  // ── Nominatim server proxy ───────────────────────────────────────────────────
+  let nomStatus = 'not tried';
+  const tryNominatim = async () => {
+    try {
+      const r = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=10000`);
+      const body = await r.json().catch(() => null);
+      if (!r.ok) {
+        nomStatus = `Server error ${r.status}: ${body && body.message ? body.message : 'unknown'}`;
+        return [];
+      }
+      if (!body || !body.success) {
+        nomStatus = `API error: ${body && body.message ? body.message : 'no data'}`;
+        return [];
+      }
+      const raw = body.data || [];
+      const converted = convertNominatimSpots(raw);
+      nomStatus = `${raw.length} raw → ${converted.length} spots`;
+      return converted;
+    } catch (e) {
+      nomStatus = `fetch failed: ${e.message}`;
+      return [];
+    }
+  };
 
-  // ── Run both simultaneously; use whichever gives results ────────────────────
+  // ── Race: show results as soon as first source responds with data ─────────────
   const [osmSpots, nomSpots] = await Promise.all([tryOverpass(), tryNominatim()]);
   const spots = osmSpots.length > 0 ? osmSpots : nomSpots;
-  console.log('[PAYD] Overpass:', osmSpots.length, '| Nominatim:', nomSpots.length, '| Using:', spots.length);
 
-  // ── Debug banner ─────────────────────────────────────────────────────────────
-  const dbg = document.getElementById('_paydDbg') || (() => {
-    const el = document.createElement('div');
-    el.id = '_paydDbg';
-    el.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);background:#1a3c5e;color:#fff;font-size:12px;padding:8px 14px;border-radius:8px;z-index:99999;text-align:center;max-width:92vw;box-shadow:0 4px 20px rgba(0,0,0,0.5);line-height:1.7;';
-    document.body.appendChild(el);
-    return el;
-  })();
-  const src = osmSpots.length > 0 ? '<span style="color:#4caf50">Overpass✓</span>'
-    : nomSpots.length > 0 ? '<span style="color:#4caf50">Nominatim✓</span>'
-    : '<span style="color:#f44336">both 0</span>';
-  dbg.innerHTML = `<strong>v16</strong> ${src} | lat=${lat.toFixed(4)}, lng=${lng.toFixed(4)}<br>` +
-    `OV:<strong style="color:${osmSpots.length?'#4caf50':'#f44336'}">${osmSpots.length}</strong> ` +
-    `NOM:<strong style="color:${nomSpots.length?'#4caf50':'#f44336'}">${nomSpots.length}</strong> ` +
-    `TOTAL:<strong>${spots.length}</strong>` +
-    `<button onclick="this.parentElement.remove()" style="margin-left:8px;background:none;border:1px solid #fff;color:#fff;border-radius:4px;padding:1px 7px;cursor:pointer">✕</button>`;
-
+  updDbg(ovStatus, nomStatus, spots.length);
   showToast(
-    spots.length > 0 ? `Found ${spots.length} parking spots.` : 'No parking found nearby.',
+    spots.length > 0 ? `Found ${spots.length} parking spots.` : 'No parking found — see diagnostic banner.',
     spots.length > 0 ? 'success' : 'warning'
   );
   return spots;

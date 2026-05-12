@@ -449,55 +449,60 @@ function autoDetectGPS() {
 /* ============================================================
    PRIORITY BUTTONS  (plain <button> elements, no radio inputs)
    ============================================================ */
-// Map of button id suffixes per group
-const PRIO_BTNS = {
-  priority:      [['prio-dest','distance'], ['prio-cost','cost'], ['prio-type','type']],
-  trackPriority: [['tprio-dest','distance'],['tprio-cost','cost'],['tprio-type','type']],
-};
-
 function applyPriorityStyle(value, groupName) {
-  (PRIO_BTNS[groupName] || []).forEach(([id, val]) => {
-    const el = document.getElementById(id);
-    if (!el) { console.warn('[PAYD] priority btn not found:', id); return; }
-    const sel = val === value;
+  // Button list inline — no external const dependency
+  var btnList = groupName === 'priority'
+    ? [['prio-dest','distance'],['prio-cost','cost'],['prio-type','type']]
+    : [['tprio-dest','distance'],['tprio-cost','cost'],['tprio-type','type']];
+  for (var i = 0; i < btnList.length; i++) {
+    var id  = btnList[i][0];
+    var val = btnList[i][1];
+    var el  = document.getElementById(id);
+    if (!el) continue;
+    var sel = (val === value);
     el.classList.toggle('selected', sel);
     if (sel) {
-      el.style.setProperty('background', '#1a3c5e', 'important');
-      el.style.setProperty('color', '#ffffff', 'important');
+      el.style.setProperty('background',   '#1a3c5e', 'important');
+      el.style.setProperty('color',        '#ffffff',  'important');
       el.style.setProperty('border-color', '#1a3c5e', 'important');
     } else {
       el.style.removeProperty('background');
       el.style.removeProperty('color');
       el.style.removeProperty('border-color');
     }
-    const pt = el.querySelector('.p-text');
+    var pt = el.querySelector('.p-text');
     if (pt) {
       if (sel) pt.style.setProperty('color', '#ffffff', 'important');
-      else pt.style.removeProperty('color');
+      else     pt.style.removeProperty('color');
     }
-  });
+  }
 }
 
 function wirePriorityOptions() {
-  // Belt-and-braces: HTML onclick AND addEventListener both call selectPriority
-  Object.entries(PRIO_BTNS).forEach(([groupName, btns]) => {
-    btns.forEach(([id, val]) => {
-      const el = document.getElementById(id);
-      if (el) el.addEventListener('click', () => selectPriority(val, groupName));
-    });
-  });
+  var all = [
+    ['prio-dest','distance','priority'],['prio-cost','cost','priority'],['prio-type','type','priority'],
+    ['tprio-dest','distance','trackPriority'],['tprio-cost','cost','trackPriority'],['tprio-type','type','trackPriority']
+  ];
+  for (var i = 0; i < all.length; i++) {
+    (function(id, val, grp) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('click', function() { selectPriority(val, grp); });
+    })(all[i][0], all[i][1], all[i][2]);
+  }
   applyPriorityStyle('distance', 'priority');
   applyPriorityStyle('distance', 'trackPriority');
 }
 
 function selectPriority(value, groupName) {
-  console.log('[PAYD] selectPriority:', value, groupName);
-  applyPriorityStyle(value, groupName);
-  showToast(`Priority: ${value}`, 'info');
+  showToast('Priority: ' + value, 'info');
+  try { applyPriorityStyle(value, groupName); }
+  catch(e) { console.error('[PAYD] applyPriorityStyle error:', e.message); }
   if (allParkings.length > 0) {
-    applyPrioritySort(value);
-    filteredParkings = [...allParkings];
-    renderResults(filteredParkings);
+    try {
+      applyPrioritySort(value);
+      filteredParkings = allParkings.slice();
+      renderResults(filteredParkings);
+    } catch(e) { console.error('[PAYD] sort error:', e.message); }
   }
 }
 

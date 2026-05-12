@@ -402,7 +402,26 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v27</div>
-<script src="portal4.js?v=20260512r"></script>
+<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v28</div>
+<script>
+/* Inline failsafe — priority button highlight, zero external dependencies */
+(function(){
+  var G={priority:[['prio-dest','distance'],['prio-cost','cost'],['prio-type','type']],trackPriority:[['tprio-dest','distance'],['tprio-cost','cost'],['tprio-type','type']]};
+  function hl(val,grp){
+    var list=G[grp]||[];
+    for(var i=0;i<list.length;i++){
+      var el=document.getElementById(list[i][0]);
+      if(!el)continue;
+      var s=list[i][1]===val;
+      if(s){el.style.setProperty('background','#1a3c5e','important');el.style.setProperty('color','#fff','important');el.style.setProperty('border-color','#1a3c5e','important');el.classList.add('selected');}
+      else{el.style.removeProperty('background');el.style.removeProperty('color');el.style.removeProperty('border-color');el.classList.remove('selected');}
+    }
+  }
+  hl('distance','priority'); hl('distance','trackPriority');
+  var all=[['prio-dest','distance','priority'],['prio-cost','cost','priority'],['prio-type','type','priority'],['tprio-dest','distance','trackPriority'],['tprio-cost','cost','trackPriority'],['tprio-type','type','trackPriority']];
+  for(var i=0;i<all.length;i++){(function(id,val,grp){var el=document.getElementById(id);if(el)el.addEventListener('click',function(){hl(val,grp);});})(all[i][0],all[i][1],all[i][2]);}
+})();
+</script>
+<script src="portal4.js?v=20260512s"></script>
 </body>
 </html>

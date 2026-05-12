@@ -19,6 +19,9 @@ router.get('/lookup', async (req, res) => {
   if (!q || q.length < 2) {
     return res.status(400).json({ success: false, message: 'Vehicle query required' });
   }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ success: false, message: 'Vehicle lookup not configured (API key missing)' });
+  }
 
   try {
     const msg = await getClient().messages.create({

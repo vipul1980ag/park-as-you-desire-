@@ -76,6 +76,9 @@ router.post('/chat', async (req, res) => {
   if (!messages || !Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ success: false, message: 'messages array required' });
   }
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return res.status(503).json({ success: false, message: 'ParkBot not available (API key not configured)' });
+  }
 
   // Cap conversation length to prevent abuse
   if (messages.length > 40) {

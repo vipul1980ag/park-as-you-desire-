@@ -123,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindBtn('searchBtn',      searchParking);
   bindBtn('nearMeBtn',      findParkingNearMe);
   bindBtn('trackSearchBtn', trackSearch);
-  bindBtn('vehicleLookupBtn', lookupVehicle);
+  // vehicleLookupBtn has onclick already — not added here to avoid double-call
   bindBtn('detectBtn',      () => getGPSLocation('track'));
   bindBtn('plannerGpsBtn',  () => getGPSLocation('planner'));
   bindBtn('destGpsBtn',     () => getGPSLocation('dest'));
@@ -460,6 +460,8 @@ function selectPriority(value, radioName) {
     applyPrioritySort(value);
     filteredParkings = [...allParkings];
     renderResults(filteredParkings);
+    const labels = { distance: 'Near to Destination', cost: 'Cost Per Hour', type: 'Parking Type' };
+    showToast(`Sorted by: ${labels[value] || value}`, 'info');
   }
 }
 
@@ -623,7 +625,9 @@ async function lookupVehicle() {
     document.getElementById('viHgt').textContent   = v.height_m ? `${v.height_m} m` : '—';
     document.getElementById('viWgt').textContent   = v.weight_t ? `${v.weight_t} t`  : '—';
     document.getElementById('viNote').textContent  = v.notes || '';
-    document.getElementById('vehicleInfoCard').style.display = 'block';
+    const card = document.getElementById('vehicleInfoCard');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
     showToast(`${icon} ${v.make} ${v.model} — dimensions loaded`, 'success');
   } catch (err) {

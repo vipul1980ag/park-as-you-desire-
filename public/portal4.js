@@ -447,37 +447,36 @@ function autoDetectGPS() {
 }
 
 /* ============================================================
-   PRIORITY RADIO WIRING
+   PRIORITY BUTTONS  (plain <button> elements, no radio inputs)
    ============================================================ */
-function applyPriorityStyle(value, radioName) {
-  document.querySelectorAll(`.priority-option input[name="${radioName}"]`).forEach(r => {
-    const sel = r.value === value;
-    const lbl = r.closest('.priority-option');
-    if (!lbl) return;
-    lbl.classList.toggle('selected', sel);
-    lbl.setAttribute('style', sel
+// Map of button id suffixes per group
+const PRIO_BTNS = {
+  priority:      [['prio-dest','distance'], ['prio-cost','cost'], ['prio-type','type']],
+  trackPriority: [['tprio-dest','distance'],['tprio-cost','cost'],['tprio-type','type']],
+};
+
+function applyPriorityStyle(value, groupName) {
+  (PRIO_BTNS[groupName] || []).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const sel = val === value;
+    el.classList.toggle('selected', sel);
+    el.setAttribute('style', sel
       ? 'background:#1a3c5e!important;color:#fff!important;border-color:#1a3c5e!important;'
       : '');
-    const pt = lbl.querySelector('.p-text');
+    const pt = el.querySelector('.p-text');
     if (pt) pt.setAttribute('style', sel ? 'color:#fff!important;' : '');
   });
 }
 
 function wirePriorityOptions() {
-  ['priority', 'trackPriority'].forEach(name => {
-    document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
-      radio.addEventListener('change', function () {
-        if (this.checked) selectPriority(this.value, this.name);
-      });
-    });
-    // Apply inline styles for the initially-checked option
-    const checked = document.querySelector(`input[name="${name}"]:checked`);
-    if (checked) applyPriorityStyle(checked.value, name);
-  });
+  // Apply initial highlight to the default selection on page load
+  applyPriorityStyle('distance', 'priority');
+  applyPriorityStyle('distance', 'trackPriority');
 }
 
-function selectPriority(value, radioName) {
-  applyPriorityStyle(value, radioName);
+function selectPriority(value, groupName) {
+  applyPriorityStyle(value, groupName);
   if (allParkings.length > 0) {
     applyPrioritySort(value);
     filteredParkings = [...allParkings];

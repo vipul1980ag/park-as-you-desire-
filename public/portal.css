@@ -540,9 +540,14 @@ footer span { color: var(--accent); }
   cursor: pointer;
   transition: all var(--transition);
   user-select: none;
+  /* button element resets */
+  font: inherit;
+  width: 100%;
+  text-align: left;
+  background: none;
+  box-sizing: border-box;
 }
 .priority-option:hover { border-color: var(--primary); background: rgba(26,60,94,0.03); }
-.priority-option input[type="radio"] { position:absolute; opacity:0; width:0; height:0; pointer-events:none; }
 .priority-option.selected {
   border-color: var(--primary);
   background: var(--primary);

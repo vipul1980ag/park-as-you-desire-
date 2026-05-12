@@ -449,20 +449,35 @@ function autoDetectGPS() {
 /* ============================================================
    PRIORITY RADIO WIRING
    ============================================================ */
-function wirePriorityOptions() { /* visual selection now handled by selectPriority() via onclick */ }
-
-function selectPriority(value, radioName) {
+function applyPriorityStyle(value, radioName) {
   document.querySelectorAll(`.priority-option input[name="${radioName}"]`).forEach(r => {
     const sel = r.value === value;
-    r.checked = sel;
     const lbl = r.closest('.priority-option');
+    if (!lbl) return;
     lbl.classList.toggle('selected', sel);
-    lbl.style.background   = sel ? '#1a3c5e' : '';
-    lbl.style.color        = sel ? '#fff'    : '';
-    lbl.style.borderColor  = sel ? '#1a3c5e' : '';
+    lbl.setAttribute('style', sel
+      ? 'background:#1a3c5e!important;color:#fff!important;border-color:#1a3c5e!important;'
+      : '');
     const pt = lbl.querySelector('.p-text');
-    if (pt) pt.style.color = sel ? '#fff' : '';
+    if (pt) pt.setAttribute('style', sel ? 'color:#fff!important;' : '');
   });
+}
+
+function wirePriorityOptions() {
+  ['priority', 'trackPriority'].forEach(name => {
+    document.querySelectorAll(`input[name="${name}"]`).forEach(radio => {
+      radio.addEventListener('change', function () {
+        if (this.checked) selectPriority(this.value, this.name);
+      });
+    });
+    // Apply inline styles for the initially-checked option
+    const checked = document.querySelector(`input[name="${name}"]:checked`);
+    if (checked) applyPriorityStyle(checked.value, name);
+  });
+}
+
+function selectPriority(value, radioName) {
+  applyPriorityStyle(value, radioName);
   if (allParkings.length > 0) {
     applyPrioritySort(value);
     filteredParkings = [...allParkings];

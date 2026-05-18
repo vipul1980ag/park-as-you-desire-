@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v32 loaded');
+console.log('[PAYD] portal4.js v33 loaded');
 
 const API = '/api';
 
@@ -449,45 +449,64 @@ function autoDetectGPS() {
 }
 
 /* ============================================================
-   PRIORITY BUTTONS  (plain <button> elements, no radio inputs)
+   PRIORITY BUTTONS  (plain <button type="button"> with onclick)
    ============================================================ */
+function clickPriority(btn) {
+  var container = btn.closest('.priority-options');
+  if (!container) return;
+  // Deselect all buttons in this group
+  container.querySelectorAll('.priority-option').forEach(function(b) {
+    b.classList.remove('selected');
+    b.style.removeProperty('background');
+    b.style.removeProperty('color');
+    b.style.removeProperty('border-color');
+    var pt = b.querySelector('.p-text');
+    if (pt) pt.style.removeProperty('color');
+  });
+  // Select clicked button
+  btn.classList.add('selected');
+  btn.style.setProperty('background',   '#1a3c5e', 'important');
+  btn.style.setProperty('color',        '#ffffff',  'important');
+  btn.style.setProperty('border-color', '#1a3c5e', 'important');
+  var pt = btn.querySelector('.p-text');
+  if (pt) pt.style.setProperty('color', '#ffffff', 'important');
+  // Fire sort/toast
+  var grp = container.dataset.group || 'priority';
+  selectPriority(btn.dataset.value, grp);
+}
+
 function applyPriorityStyle(value, groupName) {
-  // Button list inline — no external const dependency
-  var btnList = groupName === 'priority'
-    ? [['prio-dest','distance'],['prio-cost','cost'],['prio-type','type']]
-    : [['tprio-dest','distance'],['tprio-cost','cost'],['tprio-type','type']];
-  for (var i = 0; i < btnList.length; i++) {
-    var id  = btnList[i][0];
-    var val = btnList[i][1];
-    var el  = document.getElementById(id);
-    if (!el) continue;
-    var sel = (val === value);
-    el.classList.toggle('selected', sel);
-    if (sel) {
-      el.style.setProperty('background',   '#1a3c5e', 'important');
-      el.style.setProperty('color',        '#ffffff',  'important');
-      el.style.setProperty('border-color', '#1a3c5e', 'important');
+  var sel = '[data-group="' + groupName + '"] .priority-option';
+  document.querySelectorAll(sel).forEach(function(btn) {
+    var active = (btn.dataset.value === value);
+    btn.classList.toggle('selected', active);
+    if (active) {
+      btn.style.setProperty('background',   '#1a3c5e', 'important');
+      btn.style.setProperty('color',        '#ffffff',  'important');
+      btn.style.setProperty('border-color', '#1a3c5e', 'important');
+      var pt = btn.querySelector('.p-text');
+      if (pt) pt.style.setProperty('color', '#ffffff', 'important');
     } else {
-      el.style.removeProperty('background');
-      el.style.removeProperty('color');
-      el.style.removeProperty('border-color');
+      btn.style.removeProperty('background');
+      btn.style.removeProperty('color');
+      btn.style.removeProperty('border-color');
+      var pt = btn.querySelector('.p-text');
+      if (pt) pt.style.removeProperty('color');
     }
-    var pt = el.querySelector('.p-text');
-    if (pt) {
-      if (sel) pt.style.setProperty('color', '#ffffff', 'important');
-      else     pt.style.removeProperty('color');
-    }
-  }
+  });
 }
 
 function wirePriorityOptions() {
-  /* Radio inputs — CSS :checked handles visual, change event triggers sort */
-  ['priority', 'trackPriority'].forEach(function(grp) {
-    document.querySelectorAll('input[name="' + grp + '"]').forEach(function(radio) {
-      radio.addEventListener('change', function() {
-        if (this.checked) selectPriority(this.value, grp);
-      });
-    });
+  // Buttons have onclick="clickPriority(this)" in HTML — just initialize visual state
+  document.querySelectorAll('.priority-options').forEach(function(grp) {
+    var sel = grp.querySelector('.priority-option.selected');
+    if (sel) {
+      sel.style.setProperty('background',   '#1a3c5e', 'important');
+      sel.style.setProperty('color',        '#ffffff',  'important');
+      sel.style.setProperty('border-color', '#1a3c5e', 'important');
+      var pt = sel.querySelector('.p-text');
+      if (pt) pt.style.setProperty('color', '#ffffff', 'important');
+    }
   });
 }
 
@@ -977,7 +996,7 @@ async function loadAllParkings() {
 async function searchParking() {
   const type     = document.getElementById('plannerType').value;
   const radius   = parseInt(document.getElementById('plannerRadius').value) || 2000;
-  const priority = document.querySelector('input[name="priority"]:checked')?.value || 'distance';
+  const priority = document.querySelector('[data-group="priority"] .priority-option.selected')?.dataset.value || 'distance';
 
   const btn = document.getElementById('searchBtn');
   setButtonLoading(btn, true, '🔍 Search Parking');
@@ -1053,7 +1072,7 @@ async function trackSearch() {
 
   const type     = document.getElementById('trackType').value;
   const radius   = parseInt(document.getElementById('trackRadius').value) || 1000;
-  const priority = document.querySelector('input[name="trackPriority"]:checked')?.value || 'distance';
+  const priority = document.querySelector('[data-group="trackPriority"] .priority-option.selected')?.dataset.value || 'distance';
 
   const btn = document.getElementById('trackSearchBtn');
   setButtonLoading(btn, true, '📍 Find Parking Near Me');

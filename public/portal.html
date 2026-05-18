@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Find Parking — Park As You Desire</title>
-  <link rel="stylesheet" href="portal.css?v=20260518e" />
+  <link rel="stylesheet" href="portal.css?v=20260518f" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
@@ -92,19 +92,16 @@
 
         <div class="priority-section">
           <span class="priority-label">Priority</span>
-          <div class="priority-options">
-            <input type="radio" class="prio-radio" name="priority" id="prio-dest" value="distance" checked>
-            <label for="prio-dest" class="priority-option">
+          <div class="priority-options" data-group="priority">
+            <button type="button" class="priority-option selected" data-value="distance" onclick="clickPriority(this)">
               <span class="p-icon">🎯</span><span class="p-text">Near to Destination</span>
-            </label>
-            <input type="radio" class="prio-radio" name="priority" id="prio-cost" value="cost">
-            <label for="prio-cost" class="priority-option">
+            </button>
+            <button type="button" class="priority-option" data-value="cost" onclick="clickPriority(this)">
               <span class="p-icon">💰</span><span class="p-text">Cost Per Hour / Day</span>
-            </label>
-            <input type="radio" class="prio-radio" name="priority" id="prio-type" value="type">
-            <label for="prio-type" class="priority-option">
+            </button>
+            <button type="button" class="priority-option" data-value="type" onclick="clickPriority(this)">
               <span class="p-icon">🅿️</span><span class="p-text">Parking Type</span>
-            </label>
+            </button>
           </div>
         </div>
 
@@ -220,19 +217,16 @@
 
         <div class="priority-section">
           <span class="priority-label">Priority</span>
-          <div class="priority-options">
-            <input type="radio" class="prio-radio" name="trackPriority" id="tprio-dest" value="distance" checked>
-            <label for="tprio-dest" class="priority-option">
+          <div class="priority-options" data-group="trackPriority">
+            <button type="button" class="priority-option selected" data-value="distance" onclick="clickPriority(this)">
               <span class="p-icon">🎯</span><span class="p-text">Near to Destination</span>
-            </label>
-            <input type="radio" class="prio-radio" name="trackPriority" id="tprio-cost" value="cost">
-            <label for="tprio-cost" class="priority-option">
+            </button>
+            <button type="button" class="priority-option" data-value="cost" onclick="clickPriority(this)">
               <span class="p-icon">💰</span><span class="p-text">Cost Per Hour / Day</span>
-            </label>
-            <input type="radio" class="prio-radio" name="trackPriority" id="tprio-type" value="type">
-            <label for="tprio-type" class="priority-option">
+            </button>
+            <button type="button" class="priority-option" data-value="type" onclick="clickPriority(this)">
               <span class="p-icon">🅿️</span><span class="p-text">Parking Type</span>
-            </label>
+            </button>
           </div>
         </div>
 
@@ -402,7 +396,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v32</div>
-<script src="portal4.js?v=20260518e"></script>
+<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v33</div>
+<script src="portal4.js?v=20260518f"></script>
 </body>
 </html>

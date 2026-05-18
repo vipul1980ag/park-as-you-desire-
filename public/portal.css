@@ -547,29 +547,14 @@ footer span { color: var(--accent); }
   background: none;
   box-sizing: border-box;
 }
-/* Hidden radio — visually invisible, fully interactive */
-.prio-radio {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-  margin: 0;
-  pointer-events: none;
-}
-/* CSS-only selected state — fires immediately on click, no JS needed */
-.prio-radio:checked + .priority-option {
+.priority-option:hover { border-color: var(--primary); background: rgba(26,60,94,0.08); }
+.priority-option.selected,
+.priority-option.selected:hover {
   background: var(--primary) !important;
   color: #fff !important;
   border-color: var(--primary) !important;
 }
-.prio-radio:checked + .priority-option .p-text { color: #fff !important; }
-.priority-option:hover { border-color: var(--primary); background: rgba(26,60,94,0.08); }
-.priority-option.selected {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #fff;
-}
-.priority-option.selected .p-text { color: #fff; }
+.priority-option.selected .p-text { color: #fff !important; }
 .priority-option .p-icon { font-size: 16px; }
 .priority-option .p-text { font-size: 13px; font-weight: 500; }
 

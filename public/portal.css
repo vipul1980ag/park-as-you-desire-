@@ -547,7 +547,8 @@ footer span { color: var(--accent); }
   background: none;
   box-sizing: border-box;
 }
-.priority-option:hover { border-color: var(--primary); background: rgba(26,60,94,0.03); }
+.priority-option:hover { border-color: var(--primary); background: rgba(26,60,94,0.08); }
+.priority-option:active { background: var(--primary) !important; color: #fff !important; border-color: var(--primary) !important; }
 .priority-option.selected {
   border-color: var(--primary);
   background: var(--primary);

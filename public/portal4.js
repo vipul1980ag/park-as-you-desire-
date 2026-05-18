@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v29 loaded');
+console.log('[PAYD] portal4.js v30 loaded');
 
 const API = '/api';
 
@@ -1158,6 +1158,9 @@ async function findParkingNearMe() {
    FILTER CHIPS
    ============================================================ */
 function applyFilter(filter, chipEl) {
+  /* diagnostic — shows 'chip!' in badge so we know onclick fired */
+  const _b = document.getElementById('versionBadge');
+  if (_b) _b.textContent = 'chip!';
   activeFilter = filter;
   document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   if (chipEl) chipEl.classList.add('active');

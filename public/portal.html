@@ -4,14 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Find Parking — Park As You Desire</title>
-  <link rel="stylesheet" href="portal.css?v=20260518b" />
+  <link rel="stylesheet" href="portal.css?v=20260518c" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script>
   /* Priority button handler — defined in <head>, zero external dependencies */
   function _prio(btn, val, grp) {
     /* 1. Change badge to prove the click reached the button */
     var badge = document.getElementById('versionBadge');
-    if (badge) badge.textContent = 'v29!';
+    if (badge) badge.textContent = 'prio!';
     /* 2. Deselect all siblings */
     var ids = grp === 'priority'
       ? ['prio-dest','prio-cost','prio-type']
@@ -429,7 +429,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v29</div>
-<script src="portal4.js?v=20260518a"></script>
+<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v30</div>
+<script src="portal4.js?v=20260518c"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v34 loaded');
+console.log('[PAYD] portal4.js v35 loaded');
 
 const API = '/api';
 
@@ -112,22 +112,27 @@ function getTypeColor(type) {
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  /* v34 DIAGNOSTIC ─────────────────────────────────────────────────────────
-     Badge turns GREEN = v34 JS is actually running in this tab.
-     Badge shows "PRIO:xxx" = mousedown reached a priority button.
-     Badge shows value name = clickPriority() ran successfully.
+  /* v35 DIAGNOSTIC ─────────────────────────────────────────────────────────
+     Badge GREEN = v35 JS running.
+     When you tap ANYWHERE in the sidebar, badge shows the actual element
+     that received the tap — this reveals any invisible overlay.
+     Format: TAG.firstClass  e.g. DIV.autocomplete-dropdown
   ──────────────────────────────────────────────────────────────────────── */
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v34'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v35'; _vb.style.background = '#27ae60'; }
 
-  // Capture-phase mousedown: fires even if something swallows the click later
-  document.addEventListener('mousedown', function(e) {
-    var pBtn = e.target.closest('.priority-option');
-    if (pBtn) {
-      var vb2 = document.getElementById('versionBadge');
-      if (vb2) { vb2.textContent = 'PRIO:' + (pBtn.dataset.value || '?'); vb2.style.background = '#e67e22'; }
+  // Capture-phase mousedown/pointerdown on document: fires before ANYTHING else
+  document.addEventListener('pointerdown', function(e) {
+    if (!e.target.closest('.sidebar')) return; // only care about sidebar taps
+    var t   = e.target;
+    var cls = (t.className && typeof t.className === 'string')
+              ? t.className.trim().split(/\s+/)[0] : 'no-class';
+    var vb2 = document.getElementById('versionBadge');
+    if (vb2) {
+      vb2.textContent = t.tagName + '.' + cls;
+      vb2.style.background = '#8e44ad'; // purple = sidebar tap detected
     }
-  }, true); // ← capture phase
+  }, true); // ← capture phase, before any other handler
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');

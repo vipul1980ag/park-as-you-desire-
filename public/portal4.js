@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v31 loaded');
+console.log('[PAYD] portal4.js v32 loaded');
 
 const API = '/api';
 
@@ -481,18 +481,14 @@ function applyPriorityStyle(value, groupName) {
 }
 
 function wirePriorityOptions() {
-  var all = [
-    ['prio-dest','distance','priority'],['prio-cost','cost','priority'],['prio-type','type','priority'],
-    ['tprio-dest','distance','trackPriority'],['tprio-cost','cost','trackPriority'],['tprio-type','type','trackPriority']
-  ];
-  for (var i = 0; i < all.length; i++) {
-    (function(id, val, grp) {
-      var el = document.getElementById(id);
-      if (el) el.addEventListener('click', function() { selectPriority(val, grp); });
-    })(all[i][0], all[i][1], all[i][2]);
-  }
-  applyPriorityStyle('distance', 'priority');
-  applyPriorityStyle('distance', 'trackPriority');
+  /* Radio inputs — CSS :checked handles visual, change event triggers sort */
+  ['priority', 'trackPriority'].forEach(function(grp) {
+    document.querySelectorAll('input[name="' + grp + '"]').forEach(function(radio) {
+      radio.addEventListener('change', function() {
+        if (this.checked) selectPriority(this.value, grp);
+      });
+    });
+  });
 }
 
 function selectPriority(value, groupName) {
@@ -767,7 +763,7 @@ function convertNominatimSpots(spots) {
   return spots.map(p => ({
     _id:           p.id,
     name:          p.name || 'Parking',
-    address:       p.address || '',
+    address:       (p.address || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 3).join(', '),
     lat:           p.lat,
     lng:           p.lng,
     type:          p.type || 'surface',
@@ -1271,9 +1267,9 @@ function renderCard(p) {
     else if (spotsNum <= 5) spotsCls = 'spots-warn';
   }
 
-  const costHr  = p.costPerHour === 0 ? 'Free'
+  const costHr  = p.costPerHour === 0 ? '🟢 Free'
     : p.costPerHour > 0 ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr`
-    : (p.feeInfo || 'Rate unknown');
+    : (p.feeInfo === 'Paid — check on arrival' ? '💳 Paid — check on arrival' : '❓ Rate: check locally');
   const costDay = p.costPerDay > 0 ? ` · £${parseFloat(p.costPerDay).toFixed(2)}/day` : '';
   const costStr = costHr + costDay;
 
@@ -1287,6 +1283,15 @@ function renderCard(p) {
     ? `${p.openTime || p.availableFrom} – ${p.closeTime || p.availableTo}` : '';
 
   const id = p._id || p.id || '';
+  const mapsUrl = (p.lat && p.lng)
+    ? `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.name || 'parking')}`;
+
+  /* Shorten display_name to first 3 segments */
+  const rawAddr = p.address || '';
+  const addrShort = rawAddr
+    ? rawAddr.split(',').map(s => s.trim()).filter(Boolean).slice(0, 3).join(', ')
+    : 'See map for location';
 
   return `
   <div class="parking-card ${borderCls}">
@@ -1298,7 +1303,7 @@ function renderCard(p) {
           ${distBadge}
         </div>
       </div>
-      <div class="card-address">📌 ${escHtml(p.address || 'Address not available')}</div>
+      <div class="card-address">📌 ${escHtml(addrShort)}</div>
       <div class="card-price">${costStr}</div>
       <div class="card-meta">
         <span class="spots-badge ${spotsCls}">
@@ -1310,7 +1315,7 @@ function renderCard(p) {
     </div>
     <div class="card-footer">
       <button class="btn btn-sm btn-blue" style="flex:1;" onclick="openModal('${id}')">Details →</button>
-      <button class="btn btn-sm btn-grey" style="flex:1;" onclick="navigateTo('${id}')">Navigate 🗺</button>
+      <a class="btn btn-sm btn-grey" style="flex:1;display:flex;align-items:center;justify-content:center;text-decoration:none;" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">Navigate 🗺</a>
     </div>
   </div>`;
 }

@@ -4,34 +4,67 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Find Parking — Park As You Desire</title>
-  <link rel="stylesheet" href="portal.css?v=20260518c" />
+  <link rel="stylesheet" href="portal.css?v=20260518d" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script>
-  /* Priority button handler — defined in <head>, zero external dependencies */
-  function _prio(btn, val, grp) {
-    /* 1. Change badge to prove the click reached the button */
-    var badge = document.getElementById('versionBadge');
-    if (badge) badge.textContent = 'prio!';
-    /* 2. Deselect all siblings */
-    var ids = grp === 'priority'
+  /* Priority button core — defined in <head>, zero external dependencies */
+  var _PRIO_MAP = [
+    ['prio-dest',  'distance', 'priority'],
+    ['prio-cost',  'cost',     'priority'],
+    ['prio-type',  'type',     'priority'],
+    ['tprio-dest', 'distance', 'trackPriority'],
+    ['tprio-cost', 'cost',     'trackPriority'],
+    ['tprio-type', 'type',     'trackPriority']
+  ];
+
+  function _prioHL(val, grp) {
+    var grpIds = grp === 'priority'
       ? ['prio-dest','prio-cost','prio-type']
       : ['tprio-dest','tprio-cost','tprio-type'];
-    for (var i = 0; i < ids.length; i++) {
-      var b = document.getElementById(ids[i]);
+    for (var i = 0; i < grpIds.length; i++) {
+      var b = document.getElementById(grpIds[i]);
       if (!b) continue;
-      b.style.removeProperty('background');
-      b.style.removeProperty('color');
-      b.style.removeProperty('border-color');
-      b.classList.remove('selected');
+      if (b.dataset.prioVal === val) {
+        b.setAttribute('style','background:#1a3c5e!important;color:#fff!important;border-color:#1a3c5e!important');
+        b.classList.add('selected');
+      } else {
+        b.setAttribute('style','');
+        b.classList.remove('selected');
+      }
     }
-    /* 3. Select clicked button */
-    btn.style.setProperty('background',   '#1a3c5e', 'important');
-    btn.style.setProperty('color',        '#ffffff',  'important');
-    btn.style.setProperty('border-color', '#1a3c5e', 'important');
-    btn.classList.add('selected');
-    /* 4. Delegate to portal4.js for sort/filter if loaded */
-    if (typeof selectPriority === 'function') selectPriority(val, grp);
   }
+
+  function _wirePrioButtons() {
+    var badge = document.getElementById('versionBadge');
+    for (var i = 0; i < _PRIO_MAP.length; i++) {
+      (function(id, val, grp) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.dataset.prioVal = val;
+        /* mousedown — earliest possible signal */
+        el.addEventListener('mousedown', function() {
+          if (badge) badge.textContent = 'md:'+val;
+        });
+        /* click — main handler */
+        el.addEventListener('click', function() {
+          if (badge) badge.textContent = 'prio:'+val;
+          _prioHL(val, grp);
+          if (typeof selectPriority === 'function') selectPriority(val, grp);
+        });
+        /* also set onclick property directly as third mechanism */
+        el.onclick = function() {
+          if (badge) badge.textContent = 'oc:'+val;
+          _prioHL(val, grp);
+          if (typeof selectPriority === 'function') selectPriority(val, grp);
+        };
+      })(_PRIO_MAP[i][0], _PRIO_MAP[i][1], _PRIO_MAP[i][2]);
+    }
+    /* set initial highlight */
+    _prioHL('distance', 'priority');
+    _prioHL('distance', 'trackPriority');
+  }
+
+  document.addEventListener('DOMContentLoaded', _wirePrioButtons);
   </script>
 </head>
 <body>
@@ -120,15 +153,15 @@
         <div class="priority-section">
           <span class="priority-label">Priority</span>
           <div class="priority-options">
-            <button type="button" class="priority-option selected" id="prio-dest" onclick="_prio(this,'distance','priority')">
+            <button type="button" class="priority-option" id="prio-dest">
               <span class="p-icon">🎯</span>
               <span class="p-text">Near to Destination</span>
             </button>
-            <button type="button" class="priority-option" id="prio-cost" onclick="_prio(this,'cost','priority')">
+            <button type="button" class="priority-option" id="prio-cost">
               <span class="p-icon">💰</span>
               <span class="p-text">Cost Per Hour / Day</span>
             </button>
-            <button type="button" class="priority-option" id="prio-type" onclick="_prio(this,'type','priority')">
+            <button type="button" class="priority-option" id="prio-type">
               <span class="p-icon">🅿️</span>
               <span class="p-text">Parking Type</span>
             </button>
@@ -248,15 +281,15 @@
         <div class="priority-section">
           <span class="priority-label">Priority</span>
           <div class="priority-options">
-            <button type="button" class="priority-option selected" id="tprio-dest" onclick="_prio(this,'distance','trackPriority')">
+            <button type="button" class="priority-option" id="tprio-dest">
               <span class="p-icon">🎯</span>
               <span class="p-text">Near to Destination</span>
             </button>
-            <button type="button" class="priority-option" id="tprio-cost" onclick="_prio(this,'cost','trackPriority')">
+            <button type="button" class="priority-option" id="tprio-cost">
               <span class="p-icon">💰</span>
               <span class="p-text">Cost Per Hour / Day</span>
             </button>
-            <button type="button" class="priority-option" id="tprio-type" onclick="_prio(this,'type','trackPriority')">
+            <button type="button" class="priority-option" id="tprio-type">
               <span class="p-icon">🅿️</span>
               <span class="p-text">Parking Type</span>
             </button>
@@ -429,7 +462,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v30</div>
-<script src="portal4.js?v=20260518c"></script>
+<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v31</div>
+<script src="portal4.js?v=20260518d"></script>
 </body>
 </html>

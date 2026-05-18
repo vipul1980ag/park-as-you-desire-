@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v30 loaded');
+console.log('[PAYD] portal4.js v31 loaded');
 
 const API = '/api';
 

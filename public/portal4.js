@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v33 loaded');
+console.log('[PAYD] portal4.js v34 loaded');
 
 const API = '/api';
 
@@ -112,6 +112,23 @@ function getTypeColor(type) {
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
+  /* v34 DIAGNOSTIC ─────────────────────────────────────────────────────────
+     Badge turns GREEN = v34 JS is actually running in this tab.
+     Badge shows "PRIO:xxx" = mousedown reached a priority button.
+     Badge shows value name = clickPriority() ran successfully.
+  ──────────────────────────────────────────────────────────────────────── */
+  const _vb = document.getElementById('versionBadge');
+  if (_vb) { _vb.textContent = 'v34'; _vb.style.background = '#27ae60'; }
+
+  // Capture-phase mousedown: fires even if something swallows the click later
+  document.addEventListener('mousedown', function(e) {
+    var pBtn = e.target.closest('.priority-option');
+    if (pBtn) {
+      var vb2 = document.getElementById('versionBadge');
+      if (vb2) { vb2.textContent = 'PRIO:' + (pBtn.dataset.value || '?'); vb2.style.background = '#e67e22'; }
+    }
+  }, true); // ← capture phase
+
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
   const timeInput = document.getElementById('plannerTime');
@@ -452,8 +469,11 @@ function autoDetectGPS() {
    PRIORITY BUTTONS  (plain <button type="button"> with onclick)
    ============================================================ */
 function clickPriority(btn) {
+  console.log('[PAYD] clickPriority called:', btn && btn.dataset && btn.dataset.value);
+  var vb = document.getElementById('versionBadge');
+  if (vb) { vb.textContent = btn.dataset.value || 'click'; vb.style.background = '#1a3c5e'; }
   var container = btn.closest('.priority-options');
-  if (!container) return;
+  if (!container) { console.error('[PAYD] clickPriority: no .priority-options container found'); return; }
   // Deselect all buttons in this group
   container.querySelectorAll('.priority-option').forEach(function(b) {
     b.classList.remove('selected');

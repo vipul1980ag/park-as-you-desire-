@@ -4,8 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Find Parking — Park As You Desire</title>
-  <link rel="stylesheet" href="portal.css?v=20260512q" />
+  <link rel="stylesheet" href="portal.css?v=20260518a" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script>
+  /* Priority button handler — defined in <head>, zero external dependencies */
+  function _prio(btn, val, grp) {
+    /* 1. Change badge to prove the click reached the button */
+    var badge = document.getElementById('versionBadge');
+    if (badge) badge.textContent = 'v29!';
+    /* 2. Deselect all siblings */
+    var ids = grp === 'priority'
+      ? ['prio-dest','prio-cost','prio-type']
+      : ['tprio-dest','tprio-cost','tprio-type'];
+    for (var i = 0; i < ids.length; i++) {
+      var b = document.getElementById(ids[i]);
+      if (!b) continue;
+      b.style.removeProperty('background');
+      b.style.removeProperty('color');
+      b.style.removeProperty('border-color');
+      b.classList.remove('selected');
+    }
+    /* 3. Select clicked button */
+    btn.style.setProperty('background',   '#1a3c5e', 'important');
+    btn.style.setProperty('color',        '#ffffff',  'important');
+    btn.style.setProperty('border-color', '#1a3c5e', 'important');
+    btn.classList.add('selected');
+    /* 4. Delegate to portal4.js for sort/filter if loaded */
+    if (typeof selectPriority === 'function') selectPriority(val, grp);
+  }
+  </script>
 </head>
 <body>
 
@@ -93,15 +120,15 @@
         <div class="priority-section">
           <span class="priority-label">Priority</span>
           <div class="priority-options">
-            <button type="button" class="priority-option selected" id="prio-dest" onclick="selectPriority('distance','priority')">
+            <button type="button" class="priority-option selected" id="prio-dest" onclick="_prio(this,'distance','priority')">
               <span class="p-icon">🎯</span>
               <span class="p-text">Near to Destination</span>
             </button>
-            <button type="button" class="priority-option" id="prio-cost" onclick="selectPriority('cost','priority')">
+            <button type="button" class="priority-option" id="prio-cost" onclick="_prio(this,'cost','priority')">
               <span class="p-icon">💰</span>
               <span class="p-text">Cost Per Hour / Day</span>
             </button>
-            <button type="button" class="priority-option" id="prio-type" onclick="selectPriority('type','priority')">
+            <button type="button" class="priority-option" id="prio-type" onclick="_prio(this,'type','priority')">
               <span class="p-icon">🅿️</span>
               <span class="p-text">Parking Type</span>
             </button>
@@ -221,15 +248,15 @@
         <div class="priority-section">
           <span class="priority-label">Priority</span>
           <div class="priority-options">
-            <button type="button" class="priority-option selected" id="tprio-dest" onclick="selectPriority('distance','trackPriority')">
+            <button type="button" class="priority-option selected" id="tprio-dest" onclick="_prio(this,'distance','trackPriority')">
               <span class="p-icon">🎯</span>
               <span class="p-text">Near to Destination</span>
             </button>
-            <button type="button" class="priority-option" id="tprio-cost" onclick="selectPriority('cost','trackPriority')">
+            <button type="button" class="priority-option" id="tprio-cost" onclick="_prio(this,'cost','trackPriority')">
               <span class="p-icon">💰</span>
               <span class="p-text">Cost Per Hour / Day</span>
             </button>
-            <button type="button" class="priority-option" id="tprio-type" onclick="selectPriority('type','trackPriority')">
+            <button type="button" class="priority-option" id="tprio-type" onclick="_prio(this,'type','trackPriority')">
               <span class="p-icon">🅿️</span>
               <span class="p-text">Parking Type</span>
             </button>
@@ -402,26 +429,7 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v28</div>
-<script>
-/* Inline failsafe — priority button highlight, zero external dependencies */
-(function(){
-  var G={priority:[['prio-dest','distance'],['prio-cost','cost'],['prio-type','type']],trackPriority:[['tprio-dest','distance'],['tprio-cost','cost'],['tprio-type','type']]};
-  function hl(val,grp){
-    var list=G[grp]||[];
-    for(var i=0;i<list.length;i++){
-      var el=document.getElementById(list[i][0]);
-      if(!el)continue;
-      var s=list[i][1]===val;
-      if(s){el.style.setProperty('background','#1a3c5e','important');el.style.setProperty('color','#fff','important');el.style.setProperty('border-color','#1a3c5e','important');el.classList.add('selected');}
-      else{el.style.removeProperty('background');el.style.removeProperty('color');el.style.removeProperty('border-color');el.classList.remove('selected');}
-    }
-  }
-  hl('distance','priority'); hl('distance','trackPriority');
-  var all=[['prio-dest','distance','priority'],['prio-cost','cost','priority'],['prio-type','type','priority'],['tprio-dest','distance','trackPriority'],['tprio-cost','cost','trackPriority'],['tprio-type','type','trackPriority']];
-  for(var i=0;i<all.length;i++){(function(id,val,grp){var el=document.getElementById(id);if(el)el.addEventListener('click',function(){hl(val,grp);});})(all[i][0],all[i][1],all[i][2]);}
-})();
-</script>
-<script src="portal4.js?v=20260512s"></script>
+<div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v29</div>
+<script src="portal4.js?v=20260518a"></script>
 </body>
 </html>

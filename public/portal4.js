@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v27 loaded');
+console.log('[PAYD] portal4.js v29 loaded');
 
 const API = '/api';
 
@@ -128,17 +128,19 @@ document.addEventListener('DOMContentLoaded', () => {
   bindBtn('plannerGpsBtn',  () => getGPSLocation('planner'));
   bindBtn('destGpsBtn',     () => getGPSLocation('dest'));
 
-  wirePriorityOptions();
-  initMap();
-  setupAllAutocompletes();
-  autoDetectGPS();
-  loadAllParkings();
+  try { wirePriorityOptions(); } catch(e) { console.error('[PAYD] wirePriorityOptions:', e); }
+  try { initMap(); } catch(e) { console.error('[PAYD] initMap:', e); }
+  try { setupAllAutocompletes(); } catch(e) { console.error('[PAYD] setupAllAutocompletes:', e); }
+  try { autoDetectGPS(); } catch(e) { console.error('[PAYD] autoDetectGPS:', e); }
+  try { loadAllParkings(); } catch(e) { console.error('[PAYD] loadAllParkings:', e); }
 
   // Live re-filter when parking type dropdown changes
   const liveTypeFilter = (selectId) => {
-    document.getElementById(selectId)?.addEventListener('change', () => {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    sel.addEventListener('change', () => {
       if (allParkings.length === 0) return;
-      const tf = document.getElementById(selectId).value;
+      const tf = sel.value;
       filteredParkings = applyTypeFilter([...allParkings], tf);
       renderResults(filteredParkings);
       if (tf) showToast(`Showing: ${tf.replace('_', ' ')} parking`, 'info');

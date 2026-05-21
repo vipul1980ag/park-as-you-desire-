@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal2.js v20260511-I loaded — simple query, full diagnostics');
+console.log('[PAYD] portal3.js v20260512-NOM loaded — Overpass+Nominatim dual-source');
 
 const API = '/api';
 
@@ -648,12 +648,11 @@ function isVehicleCompatible(p) {
 }
 
 /* ============================================================
-   OPENSTREETMAP OVERPASS API — real worldwide parking data
+   PARKING DATA — Overpass (browser) + Nominatim (server fallback)
    ============================================================ */
 
-function buildOverpassQuery(radiusMeters, lat, lng, typeFilter) {
+function buildOverpassQuery(radiusMeters, lat, lng) {
   const R = radiusMeters;
-  // Simple, proven 2-line query — nodes and ways with amenity=parking or landuse=parking
   return `[out:json][timeout:25];(node["amenity"="parking"](around:${R},${lat},${lng});way["amenity"="parking"](around:${R},${lat},${lng});node["landuse"="parking"](around:${R},${lat},${lng});way["landuse"="parking"](around:${R},${lat},${lng}););out center;`;
 }
 
@@ -663,61 +662,110 @@ const OVERPASS_MIRRORS = [
   'https://overpass.openstreetmap.ru/api/interpreter',
 ];
 
-async function overpassFetch(query) {
-  for (const mirror of OVERPASS_MIRRORS) {
-    try {
-      const res = await fetch(mirror, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `data=${encodeURIComponent(query)}`,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.elements || [];
-      }
-    } catch (e) {
-      console.warn(`Overpass mirror failed (${mirror}):`, e.message);
-    }
-  }
-  throw new Error('Could not reach Overpass API on any mirror');
-}
-
-async function fetchOSMParkings(lat, lng, radiusMeters, typeFilter) {
-  showToast(`Querying Overpass at ${lat.toFixed(4)},${lng.toFixed(4)} r=${radiusMeters}m…`, 'info');
-  let elements = await overpassFetch(buildOverpassQuery(radiusMeters, lat, lng, typeFilter));
-  showToast(`Overpass returned ${elements.length} raw elements`, elements.length > 0 ? 'success' : 'warning');
-
-  // Auto-expand if empty
-  if (elements.length === 0 && radiusMeters <= 5000) {
-    const expanded = Math.min(radiusMeters * 3, 10000);
-    showToast(`No parking in ${Math.round(radiusMeters/1000)} km — expanding to ${Math.round(expanded/1000)} km…`, 'info');
-    elements = await overpassFetch(buildOverpassQuery(expanded, lat, lng, typeFilter));
-  }
-  if (elements.length === 0 && radiusMeters <= 10000) {
-    elements = await overpassFetch(buildOverpassQuery(20000, lat, lng, typeFilter));
-  }
-
-  const parkings = elements
-    .map(el => convertOSMToParking(el, lat, lng))
-    .filter(p => p.lat && p.lng);
-
-  // Vehicle dimension filter
+function applyVehicleFilter(parkings) {
   const before = parkings.length;
-  const compatible = parkings.filter(p => {
+  const filtered = parkings.filter(p => {
     if (vehicleHeight && p.maxheight && p.maxheight < vehicleHeight) return false;
     if (vehicleWidth  && p.maxwidth  && p.maxwidth  < vehicleWidth)  return false;
     if (vehicleWeight && p.maxweight && p.maxweight < vehicleWeight)  return false;
     if (vehicleType !== 'motorcycle' && (p._osmTags || {}).amenity === 'motorcycle_parking') return false;
     return true;
   });
+  const excluded = before - filtered.length;
+  if (excluded > 0 && vehicleHeight) showToast(`${excluded} spot(s) excluded for your ${vehicleType} size.`, 'info');
+  return filtered;
+}
 
-  const excluded = before - compatible.length;
-  if (excluded > 0 && vehicleHeight) {
-    showToast(`${excluded} spot(s) excluded — size restriction for your ${vehicleType}.`, 'info');
+function convertNominatimSpots(spots) {
+  return spots.map(p => ({
+    _id:           p.id,
+    name:          p.name || 'Parking',
+    address:       p.address || '',
+    lat:           p.lat,
+    lng:           p.lng,
+    type:          p.type || 'surface',
+    typeName:      p.typeName || 'Parking',
+    costPerHour:   p.costPerHour,
+    feeInfo:       p.feeInfo || 'Rate unknown',
+    costPerDay:    null,
+    totalSpots:    p.capacity || null,
+    availableSpots: p.capacity || null,
+    availableDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    openTime:      null,
+    closeTime:     null,
+    description:   [
+      p.operator      ? `Operator: ${p.operator}` : null,
+      p.opening_hours ? `Hours: ${p.opening_hours}` : null,
+      p.maxheight     ? `Max height: ${p.maxheight} m` : null,
+      p.feeInfo,
+    ].filter(Boolean).join(' · '),
+    isActive:      true,
+    distance:      p.distance,
+    maxheight:     p.maxheight,
+    maxwidth:      p.maxwidth,
+    maxweight:     p.maxweight,
+    _osmTags:      {},
+  })).filter(p => {
+    if (vehicleHeight && p.maxheight && p.maxheight < vehicleHeight) return false;
+    if (vehicleWidth  && p.maxwidth  && p.maxwidth  < vehicleWidth)  return false;
+    if (vehicleWeight && p.maxweight && p.maxweight < vehicleWeight)  return false;
+    return true;
+  });
+}
+
+async function fetchParkings(lat, lng, radiusMeters) {
+  showToast(`Searching parking near ${lat.toFixed(4)}, ${lng.toFixed(4)}…`, 'info');
+
+  // ── 1. Try browser → Overpass (CORS-open, 3 mirrors) ─────────────────────
+  try {
+    const query = buildOverpassQuery(radiusMeters, lat, lng);
+    let elements = [];
+    for (const mirror of OVERPASS_MIRRORS) {
+      try {
+        const res = await fetch(mirror, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(query)}`,
+        });
+        if (res.ok) { const d = await res.json(); elements = d.elements || []; break; }
+        console.warn(`Overpass mirror ${mirror} returned ${res.status}`);
+      } catch (e) { console.warn(`Overpass mirror failed (${mirror}):`, e.message); }
+    }
+
+    if (elements.length > 0) {
+      const parkings = elements.map(el => convertOSMToParking(el, lat, lng)).filter(p => p.lat && p.lng);
+      showToast(`Found ${parkings.length} parking spots.`, 'success');
+      return applyVehicleFilter(parkings);
+    }
+    console.warn('Overpass returned 0 elements — trying server-side Nominatim');
+  } catch (e) {
+    console.warn('Overpass error — trying server-side Nominatim:', e.message);
   }
 
-  return compatible;
+  // ── 2. Server-side Nominatim fallback (Railway can reach Nominatim) ───────
+  showToast('Trying alternative source (Nominatim)…', 'info');
+  const nominatimFetch = async (r) => {
+    const res = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${r}`);
+    if (!res.ok) throw new Error(`Server HTTP ${res.status}`);
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Nominatim search failed');
+    return data.data || [];
+  };
+
+  let spots = await nominatimFetch(radiusMeters);
+  if (spots.length === 0 && radiusMeters <= 5000) {
+    const bigger = Math.min(radiusMeters * 3, 10000);
+    showToast(`Expanding search to ${Math.round(bigger / 1000)} km…`, 'info');
+    spots = await nominatimFetch(bigger);
+  }
+  if (spots.length === 0) spots = await nominatimFetch(20000);
+
+  showToast(spots.length > 0 ? `Found ${spots.length} parking spots.` : 'No parking found. Try a larger radius.', spots.length > 0 ? 'success' : 'warning');
+  return convertNominatimSpots(spots);
 }
+
+// Backward-compat alias used in live-tracking code
+const fetchOSMParkings = fetchParkings;
 
 function convertOSMToParking(el, refLat, refLng) {
   const tags   = el.tags || {};

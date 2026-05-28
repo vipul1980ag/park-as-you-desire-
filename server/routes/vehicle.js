@@ -15,12 +15,13 @@ try { vehicleDB = JSON.parse(fs.readFileSync(VEHICLES_PATH, 'utf8')); } catch {}
 
 function localLookup(q) {
   const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
-  // Score each vehicle by how many query terms match make/model/year_range
   const scored = vehicleDB.map(v => {
-    const haystack = `${v.make} ${v.model} ${v.year_range}`.toLowerCase();
+    const parts = [v.make, v.model, v.year_range, ...(v.aliases || [])];
+    const haystack = parts.join(' ').toLowerCase();
     const score = terms.filter(t => haystack.includes(t)).length;
     return { v, score };
-  }).filter(({ score }) => score > 0)
+  // All query terms must match — partial brand-only hits fall through to AI
+  }).filter(({ score }) => score === terms.length)
     .sort((a, b) => b.score - a.score);
   return scored.length > 0 ? scored[0].v : null;
 }

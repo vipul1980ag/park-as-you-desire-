@@ -130,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindBtn('detectBtn',      () => getGPSLocation('track'));
   bindBtn('plannerGpsBtn',  () => getGPSLocation('planner'));
   bindBtn('destGpsBtn',     () => getGPSLocation('dest'));
+  bindBtn('vehicleToggle',  toggleVehicleSection);
 
   try { wirePriorityOptions(); } catch(e) { console.error('[PAYD] wirePriorityOptions:', e); }
   try { initMap(); } catch(e) { console.error('[PAYD] initMap:', e); }

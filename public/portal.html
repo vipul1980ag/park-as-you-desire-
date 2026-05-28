@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Find Parking — Park As You Desire</title>
-  <link rel="stylesheet" href="portal.css?v=20260528a" />
+  <link rel="stylesheet" href="portal.css?v=20260528b" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 </head>
 <body>
@@ -139,13 +139,13 @@
 
             <!-- Quick type selector -->
             <div class="vehicle-type-row" id="vehicleTypeRow">
-              <button class="vtype-btn active" data-vtype="car"        onclick="selectVehicleType(this)">🚗<span>Car</span></button>
-              <button class="vtype-btn"        data-vtype="suv"        onclick="selectVehicleType(this)">🚙<span>SUV</span></button>
-              <button class="vtype-btn"        data-vtype="van"        onclick="selectVehicleType(this)">🚐<span>Van</span></button>
-              <button class="vtype-btn"        data-vtype="pickup"     onclick="selectVehicleType(this)">🛻<span>Pick-up</span></button>
-              <button class="vtype-btn"        data-vtype="truck"      onclick="selectVehicleType(this)">🚛<span>Truck</span></button>
-              <button class="vtype-btn"        data-vtype="motorcycle" onclick="selectVehicleType(this)">🏍<span>Moto</span></button>
-              <button class="vtype-btn"        data-vtype="minibus"    onclick="selectVehicleType(this)">🚌<span>Minibus</span></button>
+              <button type="button" class="vtype-btn active" data-vtype="car"        onclick="selectVehicleType(this)">🚗<span>Car</span></button>
+              <button type="button" class="vtype-btn"        data-vtype="suv"        onclick="selectVehicleType(this)">🚙<span>SUV</span></button>
+              <button type="button" class="vtype-btn"        data-vtype="van"        onclick="selectVehicleType(this)">🚐<span>Van</span></button>
+              <button type="button" class="vtype-btn"        data-vtype="pickup"     onclick="selectVehicleType(this)">🛻<span>Pick-up</span></button>
+              <button type="button" class="vtype-btn"        data-vtype="truck"      onclick="selectVehicleType(this)">🚛<span>Truck</span></button>
+              <button type="button" class="vtype-btn"        data-vtype="motorcycle" onclick="selectVehicleType(this)">🏍<span>Moto</span></button>
+              <button type="button" class="vtype-btn"        data-vtype="minibus"    onclick="selectVehicleType(this)">🚌<span>Minibus</span></button>
             </div>
 
             <!-- Make / Model lookup -->
@@ -154,7 +154,7 @@
               <div class="input-with-btn">
                 <input type="text" class="form-control" id="vehicleMakeModel"
                   placeholder="e.g. Ford Transit, BMW 3 Series…" autocomplete="off" />
-                <button class="gps-btn" id="vehicleLookupBtn" title="Look up vehicle dimensions" onclick="lookupVehicle()" style="width:64px;font-size:12px;">🔍 Find</button>
+                <button type="button" class="gps-btn" id="vehicleLookupBtn" title="Look up vehicle dimensions" onclick="lookupVehicle()" style="width:64px;font-size:12px;">🔍 Find</button>
               </div>
             </div>
 
@@ -397,6 +397,6 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v36</div>
-<script src="portal4.js?v=20260528a"></script>
+<script src="portal4.js?v=20260528b"></script>
 </body>
 </html>

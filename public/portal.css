@@ -310,7 +310,7 @@ input, select, textarea { font-family: inherit; }
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 7px 4px; border: 2px solid var(--border); border-radius: 8px;
   background: var(--surface-2); cursor: pointer; font-size: 18px; color: var(--text);
-  transition: border-color .15s, background .15s;
+  transition: border-color .15s, background .15s; touch-action: manipulation;
 }
 .vtype-btn span { font-size: 10px; font-weight: 600; color: var(--text-muted); }
 .vtype-btn:hover { border-color: var(--primary-lt); background: var(--surface-3); }

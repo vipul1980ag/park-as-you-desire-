@@ -132,6 +132,21 @@ document.addEventListener('DOMContentLoaded', () => {
   bindBtn('destGpsBtn',     () => getGPSLocation('dest'));
   bindBtn('vehicleToggle',  toggleVehicleSection);
 
+  // Auto-search vehicle after user stops typing for 700 ms
+  const vehicleInput = document.getElementById('vehicleMakeModel');
+  if (vehicleInput) {
+    let vehicleDebounce = null;
+    vehicleInput.addEventListener('input', () => {
+      clearTimeout(vehicleDebounce);
+      const q = vehicleInput.value.trim();
+      if (q.length < 3) return;
+      vehicleDebounce = setTimeout(() => lookupVehicle(), 700);
+    });
+    vehicleInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { clearTimeout(vehicleDebounce); lookupVehicle(); }
+    });
+  }
+
   try { wirePriorityOptions(); } catch(e) { console.error('[PAYD] wirePriorityOptions:', e); }
   try { initMap(); } catch(e) { console.error('[PAYD] initMap:', e); }
   try { setupAllAutocompletes(); } catch(e) { console.error('[PAYD] setupAllAutocompletes:', e); }

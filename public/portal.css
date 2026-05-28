@@ -296,6 +296,7 @@ input, select, textarea { font-family: inherit; }
   width: 100%; display: flex; align-items: center; justify-content: space-between;
   padding: 10px 14px; background: var(--surface-2); border: none; cursor: pointer;
   color: var(--text); font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  touch-action: manipulation;
 }
 .vehicle-toggle:hover { background: var(--surface-3); }
 .vehicle-toggle-arrow { font-size: 11px; color: var(--text-muted); }

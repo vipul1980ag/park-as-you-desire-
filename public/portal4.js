@@ -112,27 +112,8 @@ function getTypeColor(type) {
    INIT
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  /* v35 DIAGNOSTIC ─────────────────────────────────────────────────────────
-     Badge GREEN = v35 JS running.
-     When you tap ANYWHERE in the sidebar, badge shows the actual element
-     that received the tap — this reveals any invisible overlay.
-     Format: TAG.firstClass  e.g. DIV.autocomplete-dropdown
-  ──────────────────────────────────────────────────────────────────────── */
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v35'; _vb.style.background = '#27ae60'; }
-
-  // Capture-phase mousedown/pointerdown on document: fires before ANYTHING else
-  document.addEventListener('pointerdown', function(e) {
-    if (!e.target.closest('.sidebar')) return; // only care about sidebar taps
-    var t   = e.target;
-    var cls = (t.className && typeof t.className === 'string')
-              ? t.className.trim().split(/\s+/)[0] : 'no-class';
-    var vb2 = document.getElementById('versionBadge');
-    if (vb2) {
-      vb2.textContent = t.tagName + '.' + cls;
-      vb2.style.background = '#8e44ad'; // purple = sidebar tap detected
-    }
-  }, true); // ← capture phase, before any other handler
+  if (_vb) { _vb.textContent = 'v36'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -655,11 +636,15 @@ function toggleVehicleSection() {
   const body  = document.getElementById('vehicleBody');
   const arrow = document.getElementById('vehicleToggleArrow');
   const btn   = document.getElementById('vehicleToggle');
-  const open  = body.style.display === 'none';
+  if (!body) return;
+  const open  = body.style.display === 'none' || body.style.display === '';
   body.style.display  = open ? 'block' : 'none';
-  arrow.textContent   = open ? '▲' : '▼';
-  btn.setAttribute('aria-expanded', String(open));
-  if (open) body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  if (arrow) arrow.textContent = open ? '▲' : '▼';
+  if (btn)   btn.setAttribute('aria-expanded', String(open));
+  if (open) {
+    // Scroll the toggle button into view (not the body) so it stays visible
+    setTimeout(() => btn && btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
+  }
 }
 
 function selectVehicleType(el) {

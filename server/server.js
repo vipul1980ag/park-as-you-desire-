@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Vipul Agrawal. All Rights Reserved.
 // Proprietary and confidential. Unauthorized copying or distribution is strictly prohibited.
 
+try { require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }); } catch {}
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');

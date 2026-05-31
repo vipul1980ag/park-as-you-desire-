@@ -39,10 +39,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com', 'https://accounts.google.com'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://unpkg.com'],
-      imgSrc: ["'self'", 'data:', 'https://*.tile.openstreetmap.org'],
-      connectSrc: ["'self'", 'https://overpass-api.de', 'https://overpass.kumi.systems', 'https://overpass.openstreetmap.ru', 'https://photon.komoot.io', 'https://nominatim.openstreetmap.org', 'https://router.project-osrm.org'],
+      imgSrc: ["'self'", 'data:', 'https://*.tile.openstreetmap.org', 'https://lh3.googleusercontent.com'],
+      connectSrc: ["'self'", 'https://overpass-api.de', 'https://overpass.kumi.systems', 'https://overpass.openstreetmap.ru', 'https://photon.komoot.io', 'https://nominatim.openstreetmap.org', 'https://router.project-osrm.org', 'https://accounts.google.com', 'https://oauth2.googleapis.com'],
+      frameSrc: ["'none'", 'https://accounts.google.com'],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
     },

@@ -6,8 +6,10 @@
   <title>Find Parking — Park As You Desire</title>
   <link rel="stylesheet" href="portal.css?v=20260531" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
+<div id="g_id_onload" data-client_id="162412530588-g8iv5oghooqdvh9te8agmvnjc3159686.apps.googleusercontent.com" data-callback="handleGoogleCredential" data-auto_select="true" data-use_fedcm_for_prompt="true"></div>
 
 <!-- NAVBAR -->
 <nav class="navbar">
@@ -398,5 +400,18 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <div id="versionBadge" style="position:fixed;bottom:8px;right:8px;background:#c0392b;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;z-index:9999;opacity:1;">v36</div>
 <script src="portal4.js?v=20260531"></script>
+<script>
+async function handleGoogleCredential(response) {
+  try {
+    const res  = await fetch('/api/auth/google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ credential: response.credential }) });
+    const data = await res.json();
+    if (!data.success) { console.error('Google auth failed:', data.message); return; }
+    localStorage.setItem('parking_token', data.token);
+    localStorage.setItem('parking_user', JSON.stringify({ userId: data.userId, name: data.name, email: data.email }));
+    console.log('Signed in with Google:', data.email);
+    if (window.google?.accounts?.id) google.accounts.id.disableAutoSelect();
+  } catch(e) { console.error('Google auth error:', e.message); }
+}
+</script>
 </body>
 </html>

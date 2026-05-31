@@ -96,6 +96,7 @@ router.post('/parkings', (req, res) => {
       availableTo,
       isPrivate,
       description,
+      currency,
     } = req.body;
 
     // Basic validation
@@ -124,6 +125,7 @@ router.post('/parkings', (req, res) => {
       availableFrom: availableFrom || '08:00',
       availableTo: availableTo || '20:00',
       isPrivate: isPrivate !== undefined ? isPrivate : true,
+      currency: currency || 'GBP',
       description: description ? description.trim() : '',
     };
 
@@ -155,7 +157,7 @@ router.put('/parkings/:id', (req, res) => {
     const updatable = [
       'name', 'address', 'lat', 'lng', 'type', 'typeId',
       'costPerHour', 'costPerDay', 'totalSpots', 'availableSpots',
-      'availableDays', 'availableFrom', 'availableTo', 'isPrivate', 'description',
+      'availableDays', 'availableFrom', 'availableTo', 'isPrivate', 'description', 'currency',
     ];
 
     const updated = { ...parkings[idx] };

@@ -23,6 +23,7 @@
     ],
     "availableFrom": "06:00",
     "availableTo": "22:00",
+    "currency": "GBP",
     "isPrivate": false,
     "description": "Well-lit secure garage in city center with CCTV surveillance and 24/7 support."
   },
@@ -49,6 +50,7 @@
     ],
     "availableFrom": "07:00",
     "availableTo": "20:00",
+    "currency": "GBP",
     "isPrivate": false,
     "description": "Conveniently located street parking bays close to shops and restaurants."
   },
@@ -76,6 +78,7 @@
     ],
     "availableFrom": "05:00",
     "availableTo": "23:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Open air parking lot with easy access. Perfect for short stays near the riverside."
   },
@@ -103,6 +106,7 @@
     ],
     "availableFrom": "00:00",
     "availableTo": "23:59",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Residential apartment parking available to visitors. Covered and secure."
   },
@@ -128,6 +132,7 @@
     ],
     "availableFrom": "08:00",
     "availableTo": "18:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Office building parking available during business hours. Monitored entry."
   },
@@ -155,6 +160,7 @@
     ],
     "availableFrom": "06:00",
     "availableTo": "22:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Large multi-storey apartment complex with visitor parking on all floors."
   },
@@ -182,6 +188,7 @@
     ],
     "availableFrom": "00:00",
     "availableTo": "23:59",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Locked and gated apartment parking. Key fob access required — contact owner."
   },
@@ -207,6 +214,7 @@
     ],
     "availableFrom": "07:30",
     "availableTo": "19:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Secure locked building parking in the tech district. Barrier-controlled entry."
   },
@@ -234,6 +242,7 @@
     ],
     "availableFrom": "00:00",
     "availableTo": "23:59",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Premium locked multi-storey parking at Pinnacle Tower. ANPR cameras and 24hr security."
   },
@@ -261,6 +270,7 @@
     ],
     "availableFrom": "05:30",
     "availableTo": "23:30",
+    "currency": "GBP",
     "isPrivate": false,
     "description": "Affordable park and ride facility. Bus connections every 10 minutes to city center."
   },
@@ -283,6 +293,7 @@
     ],
     "availableFrom": "08:00",
     "availableTo": "18:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Test"
   },
@@ -305,6 +316,7 @@
     ],
     "availableFrom": "08:00",
     "availableTo": "18:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Test"
   },
@@ -327,6 +339,7 @@
     ],
     "availableFrom": "08:00",
     "availableTo": "18:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Test"
   },
@@ -349,6 +362,7 @@
     ],
     "availableFrom": "08:00",
     "availableTo": "18:00",
+    "currency": "GBP",
     "isPrivate": true,
     "description": "Test"
   }

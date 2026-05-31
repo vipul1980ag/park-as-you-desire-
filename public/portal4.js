@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v35 loaded');
+console.log('[PAYD] portal4.js v37 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v36'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v37'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -206,13 +206,17 @@ function renderMapMarkers(list) {
     const color    = getTypeColor(p.type);
     const spotsNum = parseInt(p.availableSpots, 10);
     const available = isNaN(spotsNum) || spotsNum > 0;
+    const _cur     = p.currency || 'GBP';
     const costStr  = p.costPerHour === 0 ? 'Free'
-      : p.costPerHour > 0 ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr`
+      : p.costPerHour > 0 ? `${formatCost(p.costPerHour, _cur)}/hr`
       : (p.feeInfo || 'Rate unknown');
-    const spots    = p.availableSpots != null ? p.availableSpots : '?';
-    const spotsLabel = spotsNum === 0
-      ? '<span style="color:#e74c3c">Full</span>'
-      : `<span style="color:#27ae60">${spots} spots free</span>`;
+    const isOSMMarker = /^(osm_|nom-)/.test(String(p._id || p.id || ''));
+    const spots    = p.availableSpots != null ? p.availableSpots : null;
+    const spotsLabel = isOSMMarker
+      ? (p.totalSpots ? `<span style="color:#888">Cap: ${p.totalSpots}</span>` : '<span style="color:#888">Check availability</span>')
+      : (spotsNum === 0
+          ? '<span style="color:#e74c3c">Full</span>'
+          : spots != null ? `<span style="color:#27ae60">${spots} spots free</span>` : '<span style="color:#888">? spots</span>');
 
     const icon = L.divIcon({
       className: '',
@@ -817,7 +821,7 @@ function convertNominatimSpots(spots) {
     feeInfo:       p.feeInfo || 'Rate unknown',
     costPerDay:    null,
     totalSpots:    p.capacity || null,
-    availableSpots: p.capacity || null,
+    availableSpots: null,
     availableDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
     openTime:      null,
     closeTime:     null,
@@ -849,7 +853,7 @@ async function fetchParkings(lat, lng, radiusMeters, typeFilter) {
     const r = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${Math.min(radiusMeters, 10000)}`);
     const body = await r.json().catch(() => null);
     if (r.ok && body && body.success) {
-      nomSpots = convertNominatimSpots(body.data || []);
+      nomSpots = deduplicateSpots(convertNominatimSpots(body.data || []));
     }
   } catch (e) {
     console.warn('[PAYD] Nominatim exception:', e.message);
@@ -898,7 +902,7 @@ function tryOverpassDirect(lat, lng, radiusMeters) {
         .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)))
         .then(data => {
           clearTimeout(tid);
-          const spots = ((data && data.elements) || []).map(el => convertOSMToParking(el, lat, lng)).filter(p => p && p.lat && p.lng);
+          const spots = deduplicateSpots(((data && data.elements) || []).map(el => convertOSMToParking(el, lat, lng)).filter(p => p && p.lat && p.lng));
           if (spots.length > 0 && !done) { done = true; resolve(spots); }
           else if (--pending === 0 && !done) { done = true; resolve([]); }
         })
@@ -994,8 +998,8 @@ function convertOSMToParking(el, refLat, refLng) {
     feeInfo,
     costPerDay: null,
     totalSpots: capacity,
-    availableSpots: capacity,
-    availableDays: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    availableSpots: null,
+    availableDays: tags.opening_hours ? null : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
     openTime: null,
     closeTime: null,
     description: descParts.join(' · ') || '',
@@ -1304,7 +1308,8 @@ function renderCard(p) {
   const typeName   = getTypeName(p);
   const borderCls  = getCardBorderClass(typeNum);
   const badgeCls   = getTypeBadgeClass(typeNum);
-  const spots      = p.availableSpots != null ? p.availableSpots : (p.available != null ? p.available : '?');
+  const isOSMSpot  = /^(osm_|nom-)/.test(String(p._id || p.id || ''));
+  const spots      = p.availableSpots != null ? p.availableSpots : (p.available != null ? p.available : null);
   const spotsNum   = parseInt(spots, 10);
   let spotsCls     = 'spots-good';
   if (!isNaN(spotsNum)) {
@@ -1312,10 +1317,11 @@ function renderCard(p) {
     else if (spotsNum <= 5) spotsCls = 'spots-warn';
   }
 
+  const currency = p.currency || 'GBP';
   const costHr  = p.costPerHour === 0 ? '🟢 Free'
-    : p.costPerHour > 0 ? `£${parseFloat(p.costPerHour).toFixed(2)}/hr`
+    : p.costPerHour > 0 ? `${formatCost(p.costPerHour, currency)}/hr`
     : (p.feeInfo === 'Paid — check on arrival' ? '💳 Paid — check on arrival' : '❓ Rate: check locally');
-  const costDay = p.costPerDay > 0 ? ` · £${parseFloat(p.costPerDay).toFixed(2)}/day` : '';
+  const costDay = p.costPerDay > 0 ? ` · ${formatCost(p.costPerDay, currency)}/day` : '';
   const costStr = costHr + costDay;
 
   const distBadge = p.distance != null
@@ -1352,7 +1358,9 @@ function renderCard(p) {
       <div class="card-price">${costStr}</div>
       <div class="card-meta">
         <span class="spots-badge ${spotsCls}">
-          ${spots === '?' ? '? spots' : (spotsNum === 0 ? 'Full' : `${spots} spots free`)}
+          ${isOSMSpot
+            ? (p.totalSpots ? `📦 Capacity: ${p.totalSpots}` : '❓ Check availability')
+            : (spots === null ? '? spots' : (spotsNum === 0 ? 'Full' : `${spots} spots free`))}
         </span>
         ${hours ? `<span class="meta-item">🕐 ${escHtml(hours)}</span>` : ''}
       </div>
@@ -1390,9 +1398,19 @@ function buildModalBody(p) {
   const typeNum  = parseInt(p.type, 10);
   const badgeCls = getTypeBadgeClass(typeNum);
   const days     = Array.isArray(p.availableDays) ? p.availableDays.join(', ') : '—';
-  const costHr   = p.costPerHour != null ? `£${parseFloat(p.costPerHour).toFixed(2)}` : 'N/A';
-  const costDay  = p.costPerDay  != null ? `£${parseFloat(p.costPerDay).toFixed(2)}`  : 'N/A';
-  const spots    = p.availableSpots != null ? p.availableSpots : (p.available != null ? p.available : '?');
+  const _currency = p.currency || 'GBP';
+  const costHr   = p.costPerHour === 0 ? 'Free'
+    : p.costPerHour > 0 ? `${formatCost(p.costPerHour, _currency)}/hr`
+    : (p.feeInfo || 'Check on arrival');
+  const costDay  = p.costPerDay === 0 ? 'Free'
+    : p.costPerDay > 0 ? `${formatCost(p.costPerDay, _currency)}/day`
+    : '—';
+  const _isOSM   = /^(osm_|nom-)/.test(String(p._id || p.id || ''));
+  const spots    = _isOSM ? (_isOSM && p.availableSpots == null ? null : p.availableSpots)
+    : (p.availableSpots != null ? p.availableSpots : (p.available != null ? p.available : '?'));
+  const spotsDisplay = _isOSM
+    ? (p.totalSpots ? `${p.totalSpots} (total capacity, real-time unavailable)` : 'Unknown — check on arrival')
+    : (spots != null ? spots : '?');
   const hours    = `${p.openTime || p.availableFrom || '—'} – ${p.closeTime || p.availableTo || '—'}`;
   const distStr  = p.distance != null ? formatDist(p.distance) : null;
   const desc     = p.description || p.desc || '';
@@ -1426,7 +1444,7 @@ function buildModalBody(p) {
       </div>
       <div class="detail-item">
         <label>Available Spots</label>
-        <span>${spots}</span>
+        <span>${spotsDisplay}</span>
       </div>
       <div class="detail-item">
         <label>Opening Hours</label>
@@ -1741,17 +1759,14 @@ function clearRoute() {
 /* ---- Rate formatting ---- */
 function formatRate(p) {
   if (!p) return '—';
+  const currency = p.currency || 'GBP';
   if (p.costPerHour === 0) return 'Free';
   if (p.costPerHour > 0) {
-    const perMin = p.costPerHour / 60;
-    // Show per-minute if it gives a nicer number (< £0.10/min show as p/min)
-    return perMin < 0.10
-      ? `${Math.round(perMin * 100)}p/min  (£${p.costPerHour.toFixed(2)}/hr)`
-      : `£${p.costPerHour.toFixed(2)}/hr`;
+    return `${formatCost(p.costPerHour, currency)}/hr`;
   }
   if (p.costPerDay > 0) {
     const perHr = p.costPerDay / 24;
-    return `£${perHr.toFixed(2)}/hr  (£${p.costPerDay.toFixed(2)}/day)`;
+    return `${formatCost(perHr, currency)}/hr  (${formatCost(p.costPerDay, currency)}/day)`;
   }
   return 'Rate unknown (check on arrival)';
 }
@@ -1803,6 +1818,32 @@ function setText(id, val) {
 function escHtml(str) {
   if (typeof str !== 'string') return str != null ? String(str) : '';
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatCost(amount, currencyCode) {
+  if (amount === 0) return 'Free';
+  if (amount == null || amount < 0) return null;
+  try {
+    return new Intl.NumberFormat(navigator.language || 'en-GB', {
+      style: 'currency',
+      currency: currencyCode || 'GBP',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch (_) {
+    const sym = { GBP: '£', USD: '$', EUR: '€', JPY: '¥', CAD: 'CA$', AUD: 'A$', CHF: 'CHF ', SEK: 'kr', NOK: 'kr', DKK: 'kr', INR: '₹', BRL: 'R$', CNY: '¥' }[currencyCode] || '';
+    return `${sym}${parseFloat(amount).toFixed(2)}`;
+  }
+}
+
+function deduplicateSpots(spots) {
+  const out = [];
+  for (const p of spots) {
+    if (!p.lat || !p.lng) { out.push(p); continue; }
+    const dup = out.find(s => s.lat && s.lng && calcDist(p.lat, p.lng, s.lat, s.lng) < 0.02);
+    if (!dup) out.push(p);
+  }
+  return out;
 }
 
 function calcDist(lat1, lon1, lat2, lon2) {

@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v42 loaded');
+console.log('[PAYD] portal4.js v43 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v42'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v43'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');

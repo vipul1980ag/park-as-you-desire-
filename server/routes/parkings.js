@@ -251,9 +251,11 @@ router.get('/nominatim', async (req, res) => {
       return res.status(400).json({ success: false, message: 'lat and lng are required' });
     }
 
-    // Bounding box: radius metres → decimal degrees
-    const latDeg = radius / 111000;
-    const lngDeg = radius / (111000 * Math.cos(lat * Math.PI / 180));
+    // Bounding box: use 1.5× radius so the full circle fits inside, then circle-filter after.
+    // (A viewbox = exact radius only covers 78% of the circle due to corners being clipped.)
+    const boxFactor = 1.5;
+    const latDeg = (radius * boxFactor) / 111000;
+    const lngDeg = (radius * boxFactor) / (111000 * Math.cos(lat * Math.PI / 180));
     // Nominatim viewbox: left,top,right,bottom = minLon,maxLat,maxLon,minLat
     const viewbox = `${(lng - lngDeg).toFixed(6)},${(lat + latDeg).toFixed(6)},${(lng + lngDeg).toFixed(6)},${(lat - latDeg).toFixed(6)}`;
 
@@ -288,8 +290,15 @@ router.get('/nominatim', async (req, res) => {
 
       const feeInfo = fee === 'no' ? 'Free' : fee === 'yes' ? 'Paid — check on arrival' : 'Rate unknown';
 
-      const nameParts = (item.display_name || '').split(',');
-      const name = nameParts[0].trim() || typeName;
+      // Pick the most descriptive name part: skip generic/short first segments
+      const nameParts = (item.display_name || '').split(',').map(s => s.trim()).filter(Boolean);
+      let name = tags.name || '';
+      if (!name) {
+        // Find first segment that looks like a real name (not a bare number or very short string)
+        name = nameParts.find(p => p.length > 3 && !/^\d+$/.test(p)) || nameParts[0] || typeName;
+      }
+
+      const dist = parseFloat(haversineDistance(lat, lng, elLat, elLon).toFixed(3));
 
       return {
         id:          `nom-${item.osm_type}-${item.osm_id}`,
@@ -303,7 +312,7 @@ router.get('/nominatim', async (req, res) => {
         feeInfo,
         costPerDay:  null,
         capacity:    tags.capacity ? parseInt(tags.capacity) : null,
-        distance:    parseFloat(haversineDistance(lat, lng, elLat, elLon).toFixed(3)),
+        distance:    dist,
         maxheight:   tags.maxheight ? parseFloat(tags.maxheight) : null,
         maxwidth:    tags.maxwidth  ? parseFloat(tags.maxwidth)  : null,
         maxweight:   tags.maxweight ? parseFloat(tags.maxweight) : null,
@@ -311,7 +320,9 @@ router.get('/nominatim', async (req, res) => {
         opening_hours: tags.opening_hours || null,
         operator:    tags.operator || null,
       };
-    }).sort((a, b) => a.distance - b.distance);
+    })
+    .filter(s => s.distance <= radius / 1000)  // strict circle: drop bounding-box corners
+    .sort((a, b) => a.distance - b.distance);
 
     res.json({ success: true, count: spots.length, data: spots, source: 'nominatim' });
   } catch (err) {

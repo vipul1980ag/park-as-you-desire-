@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v37 loaded');
+console.log('[PAYD] portal4.js v38 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v37'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v38'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -1045,6 +1045,7 @@ async function searchParking() {
           refLat = coords.lat; refLng = coords.lng;
           destLat = refLat; destLng = refLng;
           showDestMarker(refLat, refLng);
+          showDestCoordConfirm(refLat, refLng);
         } else {
           showToast(`Could not find "${toText}" — try a more specific place name.`, 'warning');
         }
@@ -1063,12 +1064,13 @@ async function searchParking() {
   }
 
   showLoading(true);
-  showToast(`Searching for parking near ${refLat.toFixed(4)}, ${refLng.toFixed(4)}…`, 'info');
+  const destLabel = (document.getElementById('plannerTo')?.value || '').trim() || `${refLat.toFixed(4)}, ${refLng.toFixed(4)}`;
+  showToast(`Searching within ${Math.round(radius / 1000 * 10) / 10} km of "${destLabel.slice(0, 40)}"…`, 'info');
 
   try {
     allParkings = await fetchOSMParkings(refLat, refLng, radius, type);
     if (allParkings.length === 0) {
-      showToast('No parking found nearby — try a larger search radius.', 'warning');
+      showToast('No parking found — try a larger search radius or check the destination.', 'warning');
     }
   } catch (err) {
     console.error('fetchOSMParkings failed:', err);

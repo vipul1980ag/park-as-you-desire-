@@ -305,19 +305,35 @@ router.get('/nominatim', async (req, res) => {
       };
     }
 
-    // Single amenity=parking query (Nominatim rate-limits parallel requests).
-    // Named garages (Tiefgaragen, Parkhäuser) missed by importance ranking are
-    // found by the browser-side Overpass nwr["name"~"tiefgarage|parkhaus"] query.
+    // Request 1: standard amenity=parking (general parking, fast)
     const nomRes = await fetch(
       `https://nominatim.openstreetmap.org/search?amenity=parking&format=json&limit=50&bounded=1&viewbox=${viewbox}&extratags=1`,
-      { headers: NOM_HEADERS, signal: AbortSignal.timeout(15000) }
+      { headers: NOM_HEADERS, signal: AbortSignal.timeout(12000) }
     );
     if (!nomRes.ok) throw new Error(`Nominatim HTTP ${nomRes.status}`);
-    const data = await nomRes.json();
+    const amenityData = await nomRes.json();
 
-    const spots = (data || [])
+    // Request 2: tiefgarage name search — SEQUENTIAL (after req 1 finishes, ~1s natural gap).
+    // Nominatim importance-ranking buries Tiefgaragen in the amenity search;
+    // a direct name search finds them immediately (confirmed by live API test).
+    let tiefData = [];
+    try {
+      const tiefRes = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=tiefgarage&format=json&limit=20&bounded=1&viewbox=${viewbox}&extratags=1`,
+        { headers: NOM_HEADERS, signal: AbortSignal.timeout(8000) }
+      );
+      if (tiefRes.ok) tiefData = await tiefRes.json();
+    } catch (_) {}
+
+    // Merge by OSM id, apply circle filter, sort by distance
+    const seen = new Set();
+    const spots = [...amenityData, ...tiefData]
       .map(mapNomItem)
-      .filter(s => s && s.distance <= radius / 1000)
+      .filter(s => {
+        if (!s || seen.has(s.id)) return false;
+        seen.add(s.id);
+        return s.distance <= radius / 1000;
+      })
       .sort((a, b) => a.distance - b.distance);
 
     res.json({ success: true, count: spots.length, data: spots, source: 'nominatim' });

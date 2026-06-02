@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v45 loaded');
+console.log('[PAYD] portal4.js v46 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v45'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v46'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -868,11 +868,8 @@ function convertNominatimSpots(spots) {
 async function fetchParkings(lat, lng, radiusMeters, typeFilter) {
   showToast('Searching for parking…', 'info');
 
-  // Start Overpass immediately in parallel — it includes nwr["name"~"tiefgarage|parkhaus"]
-  // which finds named underground garages Nominatim misses due to importance ranking.
-  const ovPromise = tryOverpassDirect(lat, lng, radiusMeters);
-
-  // Fetch Nominatim (fast, ~1-2s) — good for street/surface parking
+  // STEP 1: Server-side Nominatim — fast (~2-3s), already includes tiefgarage/parkhaus
+  // sequential search on the server side, so results include named garages from first load.
   let nomSpots = [];
   try {
     const r = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${Math.min(radiusMeters, 10000)}`);
@@ -884,17 +881,16 @@ async function fetchParkings(lat, lng, radiusMeters, typeFilter) {
     console.warn('[PAYD] Nominatim exception:', e.message);
   }
 
-  // Now wait for Overpass and merge — this gives complete results including Tiefgaragen
-  try {
-    const ovSpots = await ovPromise;
-    if (ovSpots.length > 0) {
-      const merged = deduplicateSpots([...ovSpots, ...nomSpots]);
-      return applyTypeFilter(merged, typeFilter);
-    }
-  } catch (_) {}
+  if (nomSpots.length > 0) {
+    // Show results immediately — Overpass runs in background as extra enrichment
+    tryOverpassBackground(lat, lng, radiusMeters, typeFilter, nomSpots);
+    return applyTypeFilter(nomSpots, typeFilter);
+  }
 
-  // Overpass failed — use Nominatim results only
-  return applyTypeFilter(nomSpots, typeFilter);
+  // STEP 2: Nominatim returned nothing — try Overpass directly
+  showToast('Trying OpenStreetMap direct…', 'info');
+  const ovSpots = await tryOverpassDirect(lat, lng, radiusMeters);
+  return applyTypeFilter(ovSpots, typeFilter);
 }
 
 function applyTypeFilter(spots, typeFilter) {

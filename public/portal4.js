@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v44 loaded');
+console.log('[PAYD] portal4.js v45 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v44'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v45'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -797,7 +797,10 @@ function buildOverpassQuery(radiusMeters, lat, lng) {
   // 3. name~ regex — finds "Tiefgarage Wasserturm", "Parkhaus Rosengarten" etc.
   //    even when the element uses a non-standard tag or is missing amenity=parking.
   //    nwr = node+way+relation, so multipolygon relations (German Tiefgaragen) are included.
-  return `[out:json][timeout:25];(nwr["amenity"="parking"](around:${R},${lat},${lng});nwr["landuse"="parking"](around:${R},${lat},${lng});nwr["name"~"tiefgarage|parkhaus",i](around:${R},${lat},${lng}););out center;`;
+  // Name regex covers common parking facility terms across languages.
+  // Keep specific — avoid 'parking' alone (matches signs/addresses, causes timeouts).
+  // DE: tiefgarage, parkhaus | EN: car.?park | NL: parkeergarage | FR: souterrain | ES: aparcamiento
+  return `[out:json][timeout:25];(nwr["amenity"="parking"](around:${R},${lat},${lng});nwr["landuse"="parking"](around:${R},${lat},${lng});nwr["name"~"tiefgarage|parkhaus|car.?park|parkeergarage|aparcamiento|parcheggio",i](around:${R},${lat},${lng}););out center;`;
 }
 
 const OVERPASS_MIRRORS = [

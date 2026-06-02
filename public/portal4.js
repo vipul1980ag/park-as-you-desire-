@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v39 loaded');
+console.log('[PAYD] portal4.js v40 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v39'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v40'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -791,7 +791,22 @@ function isVehicleCompatible(p) {
 
 function buildOverpassQuery(radiusMeters, lat, lng) {
   const R = radiusMeters;
-  return `[out:json][timeout:25];(node["amenity"="parking"](around:${R},${lat},${lng});way["amenity"="parking"](around:${R},${lat},${lng});node["landuse"="parking"](around:${R},${lat},${lng});way["landuse"="parking"](around:${R},${lat},${lng}););out center;`;
+  // Include node, way AND relation — German Parkhäuser/Tiefgaragen are almost always
+  // mapped as OSM relations (multipolygon). Omitting relation misses most named garages.
+  return `[out:json][timeout:30];(
+    node["amenity"="parking"](around:${R},${lat},${lng});
+    way["amenity"="parking"](around:${R},${lat},${lng});
+    relation["amenity"="parking"](around:${R},${lat},${lng});
+    node["landuse"="parking"](around:${R},${lat},${lng});
+    way["landuse"="parking"](around:${R},${lat},${lng});
+    relation["landuse"="parking"](around:${R},${lat},${lng});
+    node["parking"="underground"](around:${R},${lat},${lng});
+    way["parking"="underground"](around:${R},${lat},${lng});
+    relation["parking"="underground"](around:${R},${lat},${lng});
+    node["parking"="multi-storey"](around:${R},${lat},${lng});
+    way["parking"="multi-storey"](around:${R},${lat},${lng});
+    relation["parking"="multi-storey"](around:${R},${lat},${lng});
+  );out center;`;
 }
 
 const OVERPASS_MIRRORS = [
@@ -903,7 +918,7 @@ function tryOverpassDirect(lat, lng, radiusMeters) {
     let pending = OVERPASS_MIRRORS.length;
     OVERPASS_MIRRORS.forEach(mirror => {
       const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 8000);
+      const tid  = setTimeout(() => ctrl.abort(), 20000);  // 20s — relation queries take longer
       fetch(mirror, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`data=${encodeURIComponent(ovQuery)}`, signal:ctrl.signal })
         .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)))
         .then(data => {
@@ -919,16 +934,20 @@ function tryOverpassDirect(lat, lng, radiusMeters) {
 
 function tryOverpassBackground(lat, lng, radiusMeters, typeFilter, existingSpots) {
   tryOverpassDirect(lat, lng, radiusMeters).then(ovSpots => {
-    const filtered = applyTypeFilter(ovSpots, typeFilter);
-    if (filtered.length === 0) return;
-    // Overpass uses true circle search (around:R) so it's more accurate than Nominatim's
-    // bounding-box results. Always prefer Overpass results when available.
-    allParkings = filtered;
+    if (ovSpots.length === 0) return;
+    // MERGE Overpass + existing Nominatim results — deduplicate by proximity.
+    // This ensures named garages/Tiefgaragen (relations in OSM, missed by Nominatim)
+    // are added to what Nominatim already found.
+    const merged   = deduplicateSpots([...ovSpots, ...existingSpots]);
+    const filtered = applyTypeFilter(merged, typeFilter);
+    allParkings      = filtered;
+    filteredParkings = [...allParkings];
+    const priority = document.querySelector('[data-group="priority"] .priority-option.selected')?.dataset.value || 'distance';
+    applyPrioritySort(priority);
     filteredParkings = [...allParkings];
     renderResults(filteredParkings);
-    if (filtered.length !== existingSpots.length) {
-      showToast(`Updated: ${filtered.length} spots from OpenStreetMap.`, 'info');
-    }
+    const added = filtered.length - existingSpots.length;
+    if (added > 0) showToast(`+${added} more spots found (named garages added).`, 'success');
   }).catch(() => {});
 }
 

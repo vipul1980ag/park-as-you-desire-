@@ -133,7 +133,7 @@ router.get('/nearby', async (req, res) => {
         node["amenity"="motorcycle_parking"](around:${radius},${lat},${lng});
       );out center;`;
     } else {
-      query = `[out:json][timeout:20];(nwr["amenity"="parking"](around:${radius},${lat},${lng});nwr["landuse"="parking"](around:${radius},${lat},${lng}););out center;`;
+      query = `[out:json][timeout:20];(nwr["amenity"="parking"](around:${radius},${lat},${lng});nwr["landuse"="parking"](around:${radius},${lat},${lng});nwr["name"~"tiefgarage|parkhaus|parking garage|car park|park.ride",i](around:${radius},${lat},${lng}););out center;`;
     }
 
     const MIRRORS = [

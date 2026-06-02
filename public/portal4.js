@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v41 loaded');
+console.log('[PAYD] portal4.js v42 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v41'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v42'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -791,10 +791,13 @@ function isVehicleCompatible(p) {
 
 function buildOverpassQuery(radiusMeters, lat, lng) {
   const R = radiusMeters;
-  // nwr = node + way + relation in one statement — the correct way to include all OSM
-  // element types. German Parkhäuser/Tiefgaragen are relations; the old node+way-only
-  // query silently missed them. Two nwr lines replace what was 12 lines.
-  return `[out:json][timeout:25];(nwr["amenity"="parking"](around:${R},${lat},${lng});nwr["landuse"="parking"](around:${R},${lat},${lng}););out center;`;
+  // Three search strategies in one query:
+  // 1. amenity=parking (standard tag for all parking)
+  // 2. landuse=parking (common in southern Europe)
+  // 3. name~ regex — finds "Tiefgarage Wasserturm", "Parkhaus Rosengarten" etc.
+  //    even when the element uses a non-standard tag or is missing amenity=parking.
+  //    nwr = node+way+relation, so multipolygon relations (German Tiefgaragen) are included.
+  return `[out:json][timeout:25];(nwr["amenity"="parking"](around:${R},${lat},${lng});nwr["landuse"="parking"](around:${R},${lat},${lng});nwr["name"~"tiefgarage|parkhaus|parking garage|car park|park.ride",i](around:${R},${lat},${lng}););out center;`;
 }
 
 const OVERPASS_MIRRORS = [
@@ -820,7 +823,12 @@ function applyVehicleFilter(parkings) {
 function convertNominatimSpots(spots) {
   return spots.map(p => ({
     _id:           p.id,
-    name:          p.name || 'Parking',
+    name:          (() => {
+      const n = p.name || '';
+      const t = p.typeName || 'Parking';
+      const isAddr = n && t !== 'Parking' && !/tiefgarage|parkhaus|parking|garage|stellplatz|car.park/i.test(n);
+      return n ? (isAddr ? `${n} (${t})` : n) : t;
+    })(),
     address:       (p.address || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 3).join(', '),
     lat:           p.lat,
     lng:           p.lng,
@@ -1002,9 +1010,19 @@ function convertOSMToParking(el, refLat, refLng) {
     tags.surface       ? `Surface: ${tags.surface}` : null,
   ].filter(Boolean);
 
+  // When OSM has a name that looks like a street/square (not a parking facility name),
+  // append the type so the user can identify it.
+  // e.g. "Friedrichsplatz" + Underground Car Park → "Friedrichsplatz (Underground Car Park)"
+  const rawName = tags.name || '';
+  const isAddressName = rawName && typeName !== 'Public Parking' &&
+    !/tiefgarage|parkhaus|parking|garage|stellplatz|car.park/i.test(rawName);
+  const displayName = rawName
+    ? (isAddressName ? `${rawName} (${typeName})` : rawName)
+    : typeName;
+
   return {
     _id: `osm_${el.id}`,
-    name: tags.name || typeName,
+    name: displayName,
     address,
     lat: elLat,
     lng: elLng,

@@ -133,17 +133,7 @@ router.get('/nearby', async (req, res) => {
         node["amenity"="motorcycle_parking"](around:${radius},${lat},${lng});
       );out center;`;
     } else {
-      query = `[out:json][timeout:20];(
-        node["amenity"="parking"](around:${radius},${lat},${lng});
-        way["amenity"="parking"](around:${radius},${lat},${lng});
-        relation["amenity"="parking"](around:${radius},${lat},${lng});
-        node["parking"="underground"](around:${radius},${lat},${lng});
-        way["parking"="underground"](around:${radius},${lat},${lng});
-        relation["parking"="underground"](around:${radius},${lat},${lng});
-        node["parking"="multi-storey"](around:${radius},${lat},${lng});
-        way["parking"="multi-storey"](around:${radius},${lat},${lng});
-        relation["parking"="multi-storey"](around:${radius},${lat},${lng});
-      );out center;`;
+      query = `[out:json][timeout:20];(nwr["amenity"="parking"](around:${radius},${lat},${lng});nwr["landuse"="parking"](around:${radius},${lat},${lng}););out center;`;
     }
 
     const MIRRORS = [
@@ -269,7 +259,7 @@ router.get('/nominatim', async (req, res) => {
     // Nominatim viewbox: left,top,right,bottom = minLon,maxLat,maxLon,minLat
     const viewbox = `${(lng - lngDeg).toFixed(6)},${(lat + latDeg).toFixed(6)},${(lng + lngDeg).toFixed(6)},${(lat - latDeg).toFixed(6)}`;
 
-    const url = `https://nominatim.openstreetmap.org/search?amenity=parking&format=json&limit=100&bounded=1&viewbox=${viewbox}&extratags=1`;
+    const url = `https://nominatim.openstreetmap.org/search?amenity=parking&format=json&limit=50&bounded=1&viewbox=${viewbox}&extratags=1`;
 
     const nomRes = await fetch(url, {
       headers: {

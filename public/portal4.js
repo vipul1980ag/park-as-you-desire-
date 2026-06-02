@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v40 loaded');
+console.log('[PAYD] portal4.js v41 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v40'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v41'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -791,22 +791,10 @@ function isVehicleCompatible(p) {
 
 function buildOverpassQuery(radiusMeters, lat, lng) {
   const R = radiusMeters;
-  // Include node, way AND relation — German Parkhäuser/Tiefgaragen are almost always
-  // mapped as OSM relations (multipolygon). Omitting relation misses most named garages.
-  return `[out:json][timeout:30];(
-    node["amenity"="parking"](around:${R},${lat},${lng});
-    way["amenity"="parking"](around:${R},${lat},${lng});
-    relation["amenity"="parking"](around:${R},${lat},${lng});
-    node["landuse"="parking"](around:${R},${lat},${lng});
-    way["landuse"="parking"](around:${R},${lat},${lng});
-    relation["landuse"="parking"](around:${R},${lat},${lng});
-    node["parking"="underground"](around:${R},${lat},${lng});
-    way["parking"="underground"](around:${R},${lat},${lng});
-    relation["parking"="underground"](around:${R},${lat},${lng});
-    node["parking"="multi-storey"](around:${R},${lat},${lng});
-    way["parking"="multi-storey"](around:${R},${lat},${lng});
-    relation["parking"="multi-storey"](around:${R},${lat},${lng});
-  );out center;`;
+  // nwr = node + way + relation in one statement — the correct way to include all OSM
+  // element types. German Parkhäuser/Tiefgaragen are relations; the old node+way-only
+  // query silently missed them. Two nwr lines replace what was 12 lines.
+  return `[out:json][timeout:25];(nwr["amenity"="parking"](around:${R},${lat},${lng});nwr["landuse"="parking"](around:${R},${lat},${lng}););out center;`;
 }
 
 const OVERPASS_MIRRORS = [
@@ -918,7 +906,7 @@ function tryOverpassDirect(lat, lng, radiusMeters) {
     let pending = OVERPASS_MIRRORS.length;
     OVERPASS_MIRRORS.forEach(mirror => {
       const ctrl = new AbortController();
-      const tid  = setTimeout(() => ctrl.abort(), 20000);  // 20s — relation queries take longer
+      const tid  = setTimeout(() => ctrl.abort(), 15000);  // 15s — nwr queries are efficient
       fetch(mirror, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`data=${encodeURIComponent(ovQuery)}`, signal:ctrl.signal })
         .then(r => r.ok ? r.json() : Promise.reject(new Error('HTTP '+r.status)))
         .then(data => {

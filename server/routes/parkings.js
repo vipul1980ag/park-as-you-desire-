@@ -265,31 +265,23 @@ router.get('/nominatim', async (req, res) => {
       const elLat = parseFloat(item.lat);
       const elLon = parseFloat(item.lon);
       if (isNaN(elLat) || isNaN(elLon)) return null;
-      const tags   = item.extratags || {};
-      const parking = (tags.parking  || '').toLowerCase();
-      const access  = (tags.access   || '').toLowerCase();
-      const fee     = (tags.fee      || '').toLowerCase();
+      const tags    = item.extratags || {};
+      const parking = (tags.parking || '').toLowerCase();
+      const access  = (tags.access  || '').toLowerCase();
+      const fee     = (tags.fee     || '').toLowerCase();
       const dispName = item.display_name || '';
 
-      // Infer type from parking tag OR from the facility name itself
       let typeName = 'Parking';
-      if (parking === 'multi-storey' || /parkhaus|multi.?stor/i.test(dispName))  typeName = 'Multi-Storey Car Park';
-      else if (parking === 'underground' || parking === 'basement' || /tiefgarage|underground/i.test(dispName)) typeName = 'Underground Car Park';
+      if (parking === 'multi-storey' || /parkhaus|multi.?stor/i.test(dispName))           typeName = 'Multi-Storey Car Park';
+      else if (parking === 'underground' || parking === 'basement' || /tiefgarage/i.test(dispName)) typeName = 'Underground Car Park';
       else if (parking === 'street_side' || parking === 'on_street') typeName = 'Street Parking';
       else if (access === 'private' || access === 'customers')        typeName = 'Private Parking';
       else if (parking === 'surface')                                  typeName = 'Surface Car Park';
       else if (parking === 'rooftop')                                  typeName = 'Rooftop Car Park';
 
       const feeInfo = fee === 'no' ? 'Free' : fee === 'yes' ? 'Paid — check on arrival' : 'Rate unknown';
-
-      const nameParts = dispName.split(',').map(s => s.trim()).filter(Boolean);
-      let name = nameParts[0] || typeName;
-      // Append type when name looks like a street/square, not a facility
-      if (name && typeName !== 'Parking' && !/tiefgarage|parkhaus|parking|garage|stellplatz|car.park/i.test(name)) {
-        name = `${name} (${typeName})`;
-      }
-
-      const dist = parseFloat(haversineDistance(lat, lng, elLat, elLon).toFixed(3));
+      const name = dispName.split(',')[0].trim() || typeName;
+      const dist  = parseFloat(haversineDistance(lat, lng, elLat, elLon).toFixed(3));
 
       return {
         id:           `nom-${item.osm_type}-${item.osm_id}`,
@@ -313,34 +305,19 @@ router.get('/nominatim', async (req, res) => {
       };
     }
 
-    async function nomFetch(url) {
-      try {
-        const r = await fetch(url, { headers: NOM_HEADERS, signal: AbortSignal.timeout(10000) });
-        if (!r.ok) return [];
-        return await r.json();
-      } catch { return []; }
-    }
+    // Single amenity=parking query (Nominatim rate-limits parallel requests).
+    // Named garages (Tiefgaragen, Parkhäuser) missed by importance ranking are
+    // found by the browser-side Overpass nwr["name"~"tiefgarage|parkhaus"] query.
+    const nomRes = await fetch(
+      `https://nominatim.openstreetmap.org/search?amenity=parking&format=json&limit=50&bounded=1&viewbox=${viewbox}&extratags=1`,
+      { headers: NOM_HEADERS, signal: AbortSignal.timeout(15000) }
+    );
+    if (!nomRes.ok) throw new Error(`Nominatim HTTP ${nomRes.status}`);
+    const data = await nomRes.json();
 
-    // Run three Nominatim queries in parallel:
-    // 1. amenity=parking (general parking)
-    // 2. q=tiefgarage (catches underground garages missed by importance ranking)
-    // 3. q=parkhaus   (catches multi-storey garages missed by importance ranking)
-    const [amenityData, tiefData, parkhausData] = await Promise.all([
-      nomFetch(`https://nominatim.openstreetmap.org/search?amenity=parking&format=json&limit=50&bounded=1&viewbox=${viewbox}&extratags=1`),
-      nomFetch(`https://nominatim.openstreetmap.org/search?q=tiefgarage&format=json&limit=20&bounded=1&viewbox=${viewbox}&extratags=1`),
-      nomFetch(`https://nominatim.openstreetmap.org/search?q=parkhaus&format=json&limit=20&bounded=1&viewbox=${viewbox}&extratags=1`),
-    ]);
-
-    // Map all items then merge, deduplicate by OSM id, apply circle filter, sort
-    const seen = new Set();
-    const spots = [...amenityData, ...tiefData, ...parkhausData]
+    const spots = (data || [])
       .map(mapNomItem)
-      .filter(s => {
-        if (!s) return false;
-        if (seen.has(s.id)) return false;
-        seen.add(s.id);
-        return s.distance <= radius / 1000;
-      })
+      .filter(s => s && s.distance <= radius / 1000)
       .sort((a, b) => a.distance - b.distance);
 
     res.json({ success: true, count: spots.length, data: spots, source: 'nominatim' });

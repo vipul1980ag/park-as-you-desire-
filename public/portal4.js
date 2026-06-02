@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v43 loaded');
+console.log('[PAYD] portal4.js v44 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v43'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v44'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -797,7 +797,7 @@ function buildOverpassQuery(radiusMeters, lat, lng) {
   // 3. name~ regex — finds "Tiefgarage Wasserturm", "Parkhaus Rosengarten" etc.
   //    even when the element uses a non-standard tag or is missing amenity=parking.
   //    nwr = node+way+relation, so multipolygon relations (German Tiefgaragen) are included.
-  return `[out:json][timeout:25];(nwr["amenity"="parking"](around:${R},${lat},${lng});nwr["landuse"="parking"](around:${R},${lat},${lng});nwr["name"~"tiefgarage|parkhaus|parking garage|car park|park.ride",i](around:${R},${lat},${lng}););out center;`;
+  return `[out:json][timeout:25];(nwr["amenity"="parking"](around:${R},${lat},${lng});nwr["landuse"="parking"](around:${R},${lat},${lng});nwr["name"~"tiefgarage|parkhaus",i](around:${R},${lat},${lng}););out center;`;
 }
 
 const OVERPASS_MIRRORS = [
@@ -863,10 +863,15 @@ function convertNominatimSpots(spots) {
 }
 
 async function fetchParkings(lat, lng, radiusMeters, typeFilter) {
-  // ── STEP 1: Nominatim via server proxy (fast, reliable, ~1-2s) ──────────────
+  showToast('Searching for parking…', 'info');
+
+  // Start Overpass immediately in parallel — it includes nwr["name"~"tiefgarage|parkhaus"]
+  // which finds named underground garages Nominatim misses due to importance ranking.
+  const ovPromise = tryOverpassDirect(lat, lng, radiusMeters);
+
+  // Fetch Nominatim (fast, ~1-2s) — good for street/surface parking
   let nomSpots = [];
   try {
-    showToast('Searching via map data…', 'info');
     const r = await fetch(`/api/parkings/nominatim?lat=${lat}&lng=${lng}&radius=${Math.min(radiusMeters, 10000)}`);
     const body = await r.json().catch(() => null);
     if (r.ok && body && body.success) {
@@ -876,16 +881,17 @@ async function fetchParkings(lat, lng, radiusMeters, typeFilter) {
     console.warn('[PAYD] Nominatim exception:', e.message);
   }
 
-  if (nomSpots.length > 0) {
-    const filtered = applyTypeFilter(nomSpots, typeFilter);
-    tryOverpassBackground(lat, lng, radiusMeters, typeFilter, nomSpots);
-    return filtered;
-  }
+  // Now wait for Overpass and merge — this gives complete results including Tiefgaragen
+  try {
+    const ovSpots = await ovPromise;
+    if (ovSpots.length > 0) {
+      const merged = deduplicateSpots([...ovSpots, ...nomSpots]);
+      return applyTypeFilter(merged, typeFilter);
+    }
+  } catch (_) {}
 
-  // ── STEP 2: Overpass fallback ────────────────────────────────────────────────
-  showToast('Trying OpenStreetMap direct…', 'info');
-  const ovSpots = await tryOverpassDirect(lat, lng, radiusMeters);
-  return applyTypeFilter(ovSpots.length > 0 ? ovSpots : nomSpots, typeFilter);
+  // Overpass failed — use Nominatim results only
+  return applyTypeFilter(nomSpots, typeFilter);
 }
 
 function applyTypeFilter(spots, typeFilter) {

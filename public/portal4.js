@@ -3,7 +3,7 @@
    ============================================================ */
 
 'use strict';
-console.log('[PAYD] portal4.js v38 loaded');
+console.log('[PAYD] portal4.js v39 loaded');
 
 const API = '/api';
 
@@ -113,7 +113,7 @@ function getTypeColor(type) {
    ============================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   const _vb = document.getElementById('versionBadge');
-  if (_vb) { _vb.textContent = 'v38'; _vb.style.background = '#27ae60'; }
+  if (_vb) { _vb.textContent = 'v39'; _vb.style.background = '#27ae60'; }
 
   const now = new Date();
   const dateInput = document.getElementById('plannerDate');
@@ -307,14 +307,16 @@ function setupAllAutocompletes() {
   });
 
   // Planner To — updates destLat/destLng + shows red dot on map
+  // Autocomplete is the authoritative source; show coords badge immediately on selection.
   setupAutocomplete('plannerTo', 'plannerToDropdown', (name, lat, lng) => {
     document.getElementById('plannerTo').value = name;
     destLat = lat; destLng = lng;
     showDestMarker(lat, lng);
+    showDestCoordConfirm(lat, lng);  // show correct coords badge from autocomplete
   });
 
-  // Also geocode the To field proactively as the user types
-  // so destLat/destLng are set even without picking from the dropdown
+  // Proactive geocoder fires when user types but does NOT use autocomplete.
+  // IMPORTANT: never overwrite coords that autocomplete already provided (destLat !== null).
   const plannerToInput = document.getElementById('plannerTo');
   if (plannerToInput) {
     let geoTimer = null;
@@ -328,7 +330,11 @@ function setupAllAutocompletes() {
         geoTimer = setTimeout(async () => {
           try {
             const coords = await geocodeAddress(q);
-            if (coords && plannerToInput.value.trim() === q) {
+            // Only apply if: text still matches AND autocomplete hasn't already set coords.
+            // This prevents a race where Photon geocodes a partial string to the wrong city
+            // (e.g. "Wasserturm, Friedrichsplatz, Man..." → Ruhr area instead of Mannheim)
+            // while the autocomplete already found the correct location.
+            if (coords && plannerToInput.value.trim() === q && destLat === null) {
               destLat = coords.lat; destLng = coords.lng;
               showDestMarker(coords.lat, coords.lng);
               showDestCoordConfirm(coords.lat, coords.lng);
@@ -914,10 +920,13 @@ function tryOverpassDirect(lat, lng, radiusMeters) {
 function tryOverpassBackground(lat, lng, radiusMeters, typeFilter, existingSpots) {
   tryOverpassDirect(lat, lng, radiusMeters).then(ovSpots => {
     const filtered = applyTypeFilter(ovSpots, typeFilter);
-    if (filtered.length > existingSpots.length) {
-      allParkings = filtered;
-      filteredParkings = [...allParkings];
-      renderResults(filteredParkings);
+    if (filtered.length === 0) return;
+    // Overpass uses true circle search (around:R) so it's more accurate than Nominatim's
+    // bounding-box results. Always prefer Overpass results when available.
+    allParkings = filtered;
+    filteredParkings = [...allParkings];
+    renderResults(filteredParkings);
+    if (filtered.length !== existingSpots.length) {
       showToast(`Updated: ${filtered.length} spots from OpenStreetMap.`, 'info');
     }
   }).catch(() => {});
